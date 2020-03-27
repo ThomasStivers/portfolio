@@ -9,8 +9,7 @@ Examples:
     >>> pf = portfolio.Portfolio(None, portfolio.test_data(), portfolio.test_holdings())
     >>> print(pf) # doctest: +ELLIPSIS
     Portfolio holding ... instruments for ... dates worth $...
-    >>> import sys
-    >>> sys.argv = ['', '--all', '--verbose']
+    >>> sys.argv = ["", "--all", "--verbose"]
     >>> args = pf.parse_args()
     >>> print(pf.report(args)["text"]) # doctest: +ELLIPSIS
     # ... Portfolio Report for January 07, 2020 #
@@ -36,6 +35,7 @@ from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
 from pathlib import Path
 import smtplib
+import sys
 
 # Use BeautifulSoup to get plain text version of the report.
 from bs4 import BeautifulSoup
@@ -166,10 +166,8 @@ class Portfolio(object):
             >>> with Portfolio() as pf: pass
         
         """
-        try:
-            if self.path.is_file():
-                self.holdings.to_hdf(self.path, key="/holdings")
-                self.data.to_hdf(self.path, key="/data")
+        self.holdings.to_hdf(self.path, key="/holdings")
+        self.data.to_hdf(self.path, key="/data")
 
     def __str__(self) -> str:
         """Briefly describe the holdings in the portfolio in a string.
@@ -338,6 +336,11 @@ class Portfolio(object):
         shares = cash / last_close
         print(f"${cash:,.2f} = {shares:,.3f} shares of {symbol}")
         return shares
+
+    def export(self) -> None:
+        """Export the holdings in the portfolio to a csv file."""
+        self.holdings.drop_duplicates().to_csv("holdings.csv")
+
 
     def report(self, args: argparse.Namespace) -> dict:
         """Produce a dictionary of two report strings in text and html.
@@ -606,6 +609,12 @@ class Portfolio(object):
             help="Provide more detailed information.",
         )
         parser.add_argument(
+            "-x",
+            "--export",
+            action="store_true",
+            help="Export holdings to a csv file.",
+        )
+        parser.add_argument(
             "-A",
             "--add",
             nargs=3,
@@ -616,7 +625,10 @@ class Portfolio(object):
             "-F",
             "--file",
             default="holdings.h5",
-            help="Name of the file where holdings and market data are stored. The default is %(default)s.",
+            help=(
+                "Name of the file where holdings and market data are stored. "
+                "The default is %(default)s.",
+            ),
         )
         parser.add_argument(
             "-R",
@@ -662,6 +674,8 @@ def main():
             args.date = pd.Timestamp(args.date)
         elif args.list:
             text_message += "\t".join(portfolio.holdings.columns)
+        elif args.export:
+            portfolio.export()
         if args.verbose and "row" in locals():
             print(row)
         portfolio.path = args.file
