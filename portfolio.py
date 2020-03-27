@@ -341,7 +341,6 @@ class Portfolio(object):
         """Export the holdings in the portfolio to a csv file."""
         self.holdings.drop_duplicates().to_csv("holdings.csv")
 
-
     def report(self, args: argparse.Namespace) -> dict:
         """Produce a dictionary of two report strings in text and html.
         
