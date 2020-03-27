@@ -597,6 +597,12 @@ class Portfolio(object):
             "-e", "--email", action="store_true", help="Email the portfolio report."
         )
         parser.add_argument(
+            "-i",
+            "--interactive",
+            action="store_true",
+            help="Interactively make changes to the portfolio.",
+        )
+        parser.add_argument(
             "-l",
             "--list",
             action="store_true",
@@ -659,13 +665,102 @@ class Portfolio(object):
         return parser.parse_args()
 
 
-def main():
+class Interactive(object):
+    """Make changes to the portfolio interactively."""
+
+    def __init__(self, portfolio: Portfolio, args: argparse.Namespace):
+        self.portfolio = portfolio
+        self.menu_actions = dict()
+        self.menu = dict(
+            enumerate(
+                [
+                    "Increase held shares of an existing symbol.",
+                    "Decrease held shares of an existing symbol.",
+                    "Set the share count for an existing symbol.",
+                    "Add a new symbol to the portfolio.",
+                    "Report on portfolio performance.",
+                    "Export the portfolio to a file.",
+                    "Quit",
+                ],
+                start=1,
+            )
+        )
+        self.assign_actions()
+        self.menu_string = "\n".join(
+            [".\t".join([str(choice), item]) for choice, item in self.menu.items()]
+        )
+        choice = int(input(self.menu_string + "\n Choice or q to quit> "))
+        self.menu_actions[choice]()
+
+    def assign_actions(self) -> dict:
+        """Assign methods to actions."""
+        menu = self.menu
+        for id, action in menu.items():
+            name = action.lower().split(" ")[0]
+            method = getattr(self, name)
+            self.menu_actions[id] = method
+        return self.menu_actions
+
+    def add(self) -> None:
+        """Add a new symbol to the portfolio."""
+        symbol = input("Symbol to add: ")
+        date = pd.Timestamp(input(f"Date on which to add {symbol}: "))
+        quantity = float(input("Shares to add (preceed with $ for cash value): "))
+        if quantity.startswith("$"):
+            cash = float(quantity[1:])
+        else:
+            shares = float(quantity)
+        if symbol in self.portfolio.holdings.columns:
+            raise KeyError(f"{symbol} already in portfolio.")
+
+    def decrease(self) -> None:
+        """Remove shares of a symbol from the portfolio on a given date."""
+        symbol = input("Symbol to remove: ")
+        date = pd.Timestamp(input(f"Date on which to remove {symbol}: "))
+        quantity = input("Shares to remove (preceed with $ for cash value): ")
+        if quantity.startswith("$"):
+            cash = float(quantity[1:])
+            self.portfolio.remove_cash(symbol, cash, date)
+        else:
+            shares = float(quantity)
+            self.portfolio.remove_shares(symbol, shares, date)
+
+    def export(self) -> None:
+        """Export the holdings in the portfolio to a csv file."""
+        self.portfolio.export()
+
+    def increase(self):
+        """Add shares of a symbol to the portfolio on a given date."""
+        symbol = input("Symbol to add: ")
+        date = pd.Timestamp(input(f"Date on which to add {symbol}: "))
+        quantity = float(input("Shares to add (preceed with $ for cash value): "))
+        if quantity.startswith("$"):
+            cash = float(quantity[1:])
+            self.portfolio.add_cash(symbol, cash, date)
+        else:
+            shares = float(quantity)
+            self.portfolio.add_shares(symbol, shares, date)
+
+    def quit(self) -> None:
+        exit()
+
+    def report(self) -> None:
+        """Generate protfolio report interactively."""
+        self.portfolio.report(self.args)
+
+    def set(self) -> None:
+        pass
+
+
+def main() -> None:
     """Use parsed command line options to produce a formatted report."""
     text_message = str()
     with Portfolio() as portfolio:
         args = portfolio.parse_args()
         testing = not args.save
-        if args.add:
+        if args.interactive:
+            Interactive(portfolio, args)
+        elif args.add:
             args.add[1] = float(args.add[1])
             args.add[2] = pd.Timestamp(args.add[2])
             if args.cash:
