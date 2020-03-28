@@ -210,7 +210,7 @@ class Portfolio(object):
         
         """
         if symbol not in self.holdings.columns:
-            raise IndexError("symbol must be in holdings.")
+            raise KeyError("symbol must be in holdings.")
         if quantity <= 0:
             raise ValueError("quantity must be > 0.")
         if not testing:
@@ -219,7 +219,7 @@ class Portfolio(object):
             print(self.holdings.loc[date, symbol] + quantity)
         return self.holdings.loc[date]
 
-    def add_symbol(self, symbol: str, quantity: loat, date: pd.Timestamp) -> None:
+    def add_symbol(self, symbol: str, quantity: float, date: pd.Timestamp) -> None:
         """Add a new symbol to the portfolio."""
         if symbol in self.holdings.columns:
             raise KeyError(
