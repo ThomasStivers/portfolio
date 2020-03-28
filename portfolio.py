@@ -3,9 +3,9 @@
 
 Examples:
     >>> import portfolio
-    
+
     Create a portfolio from test data and holdings.
-    
+
     >>> pf = portfolio.Portfolio(None, portfolio.test_data(), portfolio.test_holdings())
     >>> print(pf) # doctest: +ELLIPSIS
     Portfolio holding ... instruments for ... dates worth $...
@@ -26,7 +26,7 @@ Examples:
     <BLANKLINE>
     [^1]: Rankings are based on the cash value of the change in the portfolio on a given date with 1 being the best day of the year.
     <BLANKLINE>
-    
+
 
 """
 import argparse
@@ -89,7 +89,7 @@ class Portfolio(object):
         holdings: pd.DataFrame = None,
     ):
         """Initialize the portfolio with holdings and market data.
-        
+
         Args:
             path: The name of an hdf file containing holdings and market data. If this
                 is None then the portfolio must be described by the data and holdings arguments.
@@ -99,7 +99,7 @@ class Portfolio(object):
                 The level 1 index has one item for each ticker symbol being tracked.
             holdings:   A DataFrame containing the number of shares held of the set of
                 symbols in data over a time period corresponding to that of data.
-        
+
         Examples:
             >>> pf = Portfolio(
             ...     path=None,
@@ -110,11 +110,11 @@ class Portfolio(object):
             (5, 12)
             >>> pf.holdings.shape
             (5, 2)
-        
+
         """
         today = pd.Timestamp.floor(pd.Timestamp.today(), "D")
         yesterday = today - pd.Timedelta("1D")
-        ytd_range = pd.date_range(pd.Timestamp(today.year, 1, 1), today, freq="B")
+        # ytd_range = pd.date_range(pd.Timestamp(today.year, 1, 1), today, freq="B")
         if path:
             self.path = Path(path)
         if type(data) == pd.DataFrame and type(holdings) == pd.DataFrame:
@@ -147,11 +147,11 @@ class Portfolio(object):
     @property
     def value(self) -> pd.DataFrame:
         """The value of the held shares at closing on each date.
-        
+
         Returns:
             The market closing price of all instruments multiplied by the number of held
             shares for all dates.
-            
+
         """
         value = self.data["Close"] * self.holdings.fillna(method="bfill")
         return value
@@ -161,24 +161,24 @@ class Portfolio(object):
 
     def __exit__(self, type, value, traceback):
         """Stores market and holdings data to an HDF file.
-        
+
         Examples:
             >>> with Portfolio() as pf: pass
-        
+
         """
         self.holdings.to_hdf(self.path, key="/holdings")
         self.data.to_hdf(self.path, key="/data")
 
     def __str__(self) -> str:
         """Briefly describe the holdings in the portfolio in a string.
-        
+
         Returns:
             A string briefly summarizing the contents of the portfolio.
-            
+
             Examples:
                 >>> print(Portfolio(data=test_data(), holdings=test_holdings())) # doctest: +ELLIPSIS
                 Portfolio holding ... instruments for ... dates worth $...
-                
+
         """
         return (
             f"Portfolio holding {self.holdings.shape[1]} instruments "
@@ -190,24 +190,24 @@ class Portfolio(object):
         self, symbol: str, quantity: float, date: pd.Timestamp, testing: bool = True
     ) -> pd.Series:
         """Add shares of an instrument to holdings on given date.
-        
+
         Args:
             symbol: A stock ticker symbol.
             quantity: The number of shares to be added.
             date: The date on which the shares should be added to the portfolio.
             testing: If true the addition will not be saved in the portfolio, but the
                 share price will be calculated. If false then the addition will be made.
-            
+
         Returns:
             The holdings on the given date with the addition included.
-        
+
         Examples:
             >>> output = Portfolio().add_shares('FIPDX', 100, '2020-01-02', testing=True)
             1655.246
             >>> output['FIPDX'] == 1555.246
             True
-        
-        
+
+
         """
         if symbol not in self.holdings.columns:
             raise KeyError("symbol must be in holdings.")
@@ -231,16 +231,16 @@ class Portfolio(object):
         self, symbol: str, quantity: float, date: pd.Timestamp, testing: bool = True
     ) -> pd.Series:
         """Remove shares of an instrument from holdings on given date.
-        
+
         Args:
             symbol: A stock ticker symbol.
             quantity: The number of shares to be removed.
             date: The date on which the shares should be removed from the portfolio.
             testing: If true the removal will not be saved in the portfolio, but the share price will be calculated. If false then the removal will be made.
-            
+
         Returns:
             The holdings on the given date with the removal included.
-            
+
         """
         if symbol not in self.holdings.columns:
             raise IndexError("symbol must be in holdings.")
@@ -254,17 +254,19 @@ class Portfolio(object):
     def add_cash(
         self, symbol: str, quantity: float, date: pd.Timestamp, testing: bool = True
     ) -> pd.Series:
-        """Add shares purchasable by given quantity of cash of an instrument to holdings on given date.        
-        
+        """Add shares purchasable for  cash value of symbol to holdings on given date.
+
         Args:
             symbol: A stock ticker symbol.
             quantity: The number of dollars to be added.
             date: The date on which the dollars should be added to the portfolio.
-            testing: If true the addition will not be saved in the portfolio, but the share price will be calculated. If false then the addition will be made.
-            
+            testing: If true the addition will not be saved in the portfolio,
+                but the share price will be calculated.
+                If false then the addition will be made.
+
         Returns:
             The holdings on the given date with the addition included.
-        
+
         Examples:
             >>> Portfolio().add_shares('ERROR', 100, pd.Timestamp('2020-01-01'), testing=False)
             Traceback (most recent call last):
@@ -274,7 +276,7 @@ class Portfolio(object):
             Traceback (most recent call last):
                 ...
             ValueError: quantity must be > 0.
-            
+
         """
         if symbol not in self.holdings.columns:
             raise IndexError("symbol must be in holdings.")
@@ -289,17 +291,17 @@ class Portfolio(object):
     def remove_cash(
         self, symbol: str, quantity: float, date: pd.Timestamp, testing: bool = True
     ) -> pd.Series:
-        """Remove shares purchasable by given quantity of cash of an instrument from holdings on given date.        
-        
+        """Remove shares purchasable by given quantity of cash of an instrument from holdings on given date.
+
         Args:
             symbol: A stock ticker symbol.
             quantity: The number of dollars to be removed.
             date: The date on which the dollars should be removed from the portfolio.
             testing: If true the removal will not be saved in the portfolio, but the share price will be calculated. If false then the removal will be made.
-            
+
         Returns:
             The holdings on the given date with the removal included.
-            
+
         """
         shares = self.to_shares(symbol, quantity, date)
         if not testing:
@@ -309,15 +311,15 @@ class Portfolio(object):
 
     def to_cash(self, symbol: str, shares: float, date: pd.Timestamp) -> float:
         """Get the cash value  of a given number of shares of an instrument  on a given date.
-        
+
         Args:
             symbol: The ticker symbol to get the cash value.
             shares: The number of shares to get the cash value for.
             date: The date whose closing price should be used.
-        
+
         Returns:
             The value of the shares of symbol in dollars on the specified date.
-            
+
         """
         last_close = self.data["Close"].iloc[
             self.data["Close"].index.get_loc(date, method="ffill")
@@ -327,16 +329,16 @@ class Portfolio(object):
         return cash
 
     def to_shares(self, symbol: str, cash: float, date: pd.Timestamp) -> float:
-        """Get the number of shares of an instrument purchasable for a given price on a given date.        
-        
+        """Get the number of shares of an instrument purchasable for a given price on a given date.
+
         Args:
             symbol: The ticker symbol to get the share count.
             cash: The number of dollars to get the share count for.
             date: The date whose closing price should be used.
-        
+
         Returns:
             The count of  shares of symbol purchasable for cash on the specified date.
-            
+
         """
         last_close = self.data["Close"].iloc[
             self.data["Close"].index.get_loc(date, method="ffill")
@@ -351,13 +353,13 @@ class Portfolio(object):
 
     def report(self, args: argparse.Namespace) -> dict:
         """Produce a dictionary of two report strings in text and html.
-        
+
         Args:
             args: The arguments given on the command line and parsed by Portfolio.parse_args().
-        
+
         Returns:
             A dictionary with two keys "text" and "html" which contain the same report in those formats.
-        
+
         """
         markdown = Markdown(extensions=["footnotes", "tables"])
         report = {"text": "", "html": ""}
@@ -564,14 +566,14 @@ class Portfolio(object):
 
     def parse_args(self) -> argparse.Namespace:
         """Parse the command line arguments determining what type of report to produce.
-        
+
         Returns:
             The parsed argument list from the command line.
-        
+
         Tests:
             >>> pf=Portfolio(data=test_data(), holdings=test_holdings())
             >>> pf.parse_args()
-        
+
         """
         parser = argparse.ArgumentParser(description=self.__doc__)
         parser.add_argument(
