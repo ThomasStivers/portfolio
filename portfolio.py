@@ -683,7 +683,7 @@ def main():
             args.date = pd.Timestamp(args.date)
         elif args.list:
             text_message += "\t".join(portfolio.holdings.columns)
-        elif args.export:
+        if args.export:
             portfolio.export()
         if args.verbose and "row" in locals():
             print(row)
