@@ -391,9 +391,9 @@ class Portfolio(object):
         pct_difference = daily_totals.pct_change(1)[args.date] * 100
         ranking = daily_totals.diff().rank(ascending=False)[args.date]
         if args.date in pd.date_range(args.date, freq="bm", periods=1):
-            report["text"] += self.periodic_report(args, "28d")
+            report["text"] += f"{self.periodic_report(args, '28d')}\n"
         if args.date.dayofweek == 4:
-            report["text"] += self.periodic_report(args, "7d")
+            report["text"] += f"{self.periodic_report(args, '7d')}\n"
         report["text"] += (
             f"# {charts['up'] if difference > 0 else charts['down']} "
             f"Portfolio Report for {date_string} #\n"
