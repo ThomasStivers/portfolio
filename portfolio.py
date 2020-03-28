@@ -708,10 +708,12 @@ class Interactive(object):
         quantity = float(input("Shares to add (preceed with $ for cash value): "))
         if quantity.startswith("$"):
             cash = float(quantity[1:])
+            self.portfolio.add_symbol(
+                symbol, self.portfolio.to_shares(symbol, cash, date), date
+            )
         else:
             shares = float(quantity)
-        if symbol in self.portfolio.holdings.columns:
-            raise KeyError(f"{symbol} already in portfolio.")
+            self.portfolio.add_symbol(symbol, shares, date)
 
     def decrease(self) -> None:
         """Remove shares of a symbol from the portfolio on a given date."""
