@@ -219,6 +219,14 @@ class Portfolio(object):
             print(self.holdings.loc[date, symbol] + quantity)
         return self.holdings.loc[date]
 
+    def add_symbol(self, symbol: str, quantity: loat, date: pd.Timestamp) -> None:
+        """Add a new symbol to the portfolio."""
+        if symbol in self.holdings.columns:
+            raise KeyError(
+                f"symbol is already inportfolio. Use add_shares or add_cash instead."
+            )
+            self.holdings.loc[date, symbol] = quantity
+
     def remove_shares(
         self, symbol: str, quantity: float, date: pd.Timestamp, testing: bool = True
     ) -> pd.Series:
