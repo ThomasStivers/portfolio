@@ -686,10 +686,14 @@ class Interactive(object):
             )
         )
         self.assign_actions()
-        self.menu_string = "\n".join(
+        self.show_menu()
+
+    def show_menu(self):
+        """Display the menu."""
+        menu_string = "\n".join(
             [".\t".join([str(choice), item]) for choice, item in self.menu.items()]
         )
-        choice = int(input(self.menu_string + "\n Choice or q to quit> "))
+        choice = int(input(menu_string + "\n Choice or q to quit> "))
         self.menu_actions[choice]()
 
     def assign_actions(self) -> dict:
@@ -714,6 +718,7 @@ class Interactive(object):
         else:
             shares = float(quantity)
             self.portfolio.add_symbol(symbol, shares, date)
+            self.show_menu()
 
     def decrease(self) -> None:
         """Remove shares of a symbol from the portfolio on a given date."""
@@ -726,10 +731,12 @@ class Interactive(object):
         else:
             shares = float(quantity)
             self.portfolio.remove_shares(symbol, shares, date)
+            self.show_menu()
 
     def export(self) -> None:
         """Export the holdings in the portfolio to a csv file."""
         self.portfolio.export()
+        self.show_menu()
 
     def increase(self):
         """Add shares of a symbol to the portfolio on a given date."""
@@ -742,6 +749,7 @@ class Interactive(object):
         else:
             shares = float(quantity)
             self.portfolio.add_shares(symbol, shares, date)
+            self.show_menu()
 
     def quit(self) -> None:
         exit()
@@ -753,10 +761,10 @@ class Interactive(object):
             date=date, symbol=list(self.portfolio.holdings.columns), verbose=True
         )
         print(self.portfolio.report(args)["text"])
-        self.__init__(self.portfolio, args)
+        self.show_menu()
 
     def set(self) -> None:
-        pass
+        self.show_menu()
 
 
 def main() -> None:
