@@ -243,7 +243,7 @@ class Portfolio(object):
 
         """
         if symbol not in self.holdings.columns:
-            raise IndexError("symbol must be in holdings.")
+            raise KeyError("symbol must be in holdings.")
         if quantity <= 0:
             raise ValueError("quantity must be > 0.")
         if not testing:
@@ -279,7 +279,7 @@ class Portfolio(object):
 
         """
         if symbol not in self.holdings.columns:
-            raise IndexError("symbol must be in holdings.")
+            raise KeyError("symbol must be in holdings.")
         if quantity <= 0:
             raise ValueError("quantity must be > 0.")
         shares = self.to_shares(symbol, quantity, date)
