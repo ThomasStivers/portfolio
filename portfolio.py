@@ -679,6 +679,7 @@ class Interactive(object):
                     "Set the share count for an existing symbol.",
                     "Add a new symbol to the portfolio.",
                     "Report on portfolio performance.",
+                    "Email portfolio report.",
                     "Export the portfolio to a file.",
                     "Quit",
                 ],
@@ -688,7 +689,7 @@ class Interactive(object):
         self.assign_actions()
         self.show_menu()
 
-    def show_menu(self):
+    def show_menu(self) -> None:
         """Display the menu."""
         menu_string = "\n".join(
             [".\t".join([str(choice), item]) for choice, item in self.menu.items()]
@@ -733,9 +734,20 @@ class Interactive(object):
             self.portfolio.remove_shares(symbol, shares, date)
             self.show_menu()
 
+    def email(self) -> None:
+        """Email the html formatted portfolio report to designated recipients."""
+        date = pd.Timestamp(input("Date of report: "))
+        args = argparse.Namespace(
+            date=date, symbol=list(self.portfolio.holdings.columns), email=True,
+        )
+        self.portfolio.email(args)
+        print("Portfolio emailed.")
+        self.show_menu()
+
     def export(self) -> None:
         """Export the holdings in the portfolio to a csv file."""
         self.portfolio.export()
+        print("Portfolio exported.")
         self.show_menu()
 
     def increase(self):
