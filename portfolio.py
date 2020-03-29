@@ -747,8 +747,13 @@ class Interactive(object):
         exit()
 
     def report(self) -> None:
-        """Generate protfolio report interactively."""
-        self.portfolio.report(self.args)
+        """Generate portfolio report interactively."""
+        date = pd.Timestamp(input("Date of report: "))
+        args = argparse.Namespace(
+            date=date, symbol=list(self.portfolio.holdings.columns), verbose=True
+        )
+        print(self.portfolio.report(args)["text"])
+        self.__init__(self.portfolio, args)
 
     def set(self) -> None:
         pass
