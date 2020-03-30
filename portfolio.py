@@ -214,9 +214,9 @@ class Portfolio(object):
         if quantity <= 0:
             raise ValueError("quantity must be > 0.")
         if not testing:
-            self.holdings.loc[date, symbol] += quantity
+            self.holdings.loc[date:, symbol] += quantity
         else:
-            print(self.holdings.loc[date, symbol] + quantity)
+            print(self.holdings.loc[date:, symbol] + quantity)
         return self.holdings.loc[date]
 
     def add_symbol(self, symbol: str, quantity: float, date: pd.Timestamp) -> None:
@@ -225,7 +225,7 @@ class Portfolio(object):
             raise KeyError(
                 f"symbol is already inportfolio. Use add_shares or add_cash instead."
             )
-            self.holdings.loc[date, symbol] = quantity
+            self.holdings.loc[date:, symbol] = quantity
 
     def remove_shares(
         self, symbol: str, quantity: float, date: pd.Timestamp, testing: bool = True
@@ -247,7 +247,7 @@ class Portfolio(object):
         if quantity <= 0:
             raise ValueError("quantity must be > 0.")
         if not testing:
-            self.holdings.loc[date, symbol] -= quantity
+            self.holdings.loc[date:, symbol] -= quantity
         print(self.holdings[symbol].tail())
         return self.holdings.loc[date]
 
@@ -271,7 +271,7 @@ class Portfolio(object):
             >>> Portfolio().add_shares('ERROR', 100, pd.Timestamp('2020-01-01'), testing=False)
             Traceback (most recent call last):
                 ...
-            IndexError: symbol must be in holdings.
+            KeyError: symbol must be in holdings.
             >>> Portfolio().add_shares('FSKAX', -100, pd.Timestamp('2020-01-01'), testing=True)
             Traceback (most recent call last):
                 ...
@@ -284,7 +284,7 @@ class Portfolio(object):
             raise ValueError("quantity must be > 0.")
         shares = self.to_shares(symbol, quantity, date)
         if not testing:
-            self.holdings.loc[date, symbol] += shares
+            self.holdings.loc[date:, symbol] += shares
         print(self.holdings[symbol].tail())
         return self.holdings.loc[date]
 
@@ -305,7 +305,7 @@ class Portfolio(object):
         """
         shares = self.to_shares(symbol, quantity, date)
         if not testing:
-            self.holdings.loc[date, symbol] -= shares
+            self.holdings.loc[date:, symbol] -= shares
         print(self.holdings[symbol].tail())
         return self.holdings.loc[date]
 

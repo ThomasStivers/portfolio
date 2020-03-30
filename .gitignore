@@ -1,4 +1,7 @@
 *.h5 
 *.csv 
 message.html 
-__pycache__ 
+__pycache__/
+dist/
+venv/
+build/
