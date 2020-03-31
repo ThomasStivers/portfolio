@@ -1,7 +1,8 @@
-*.h5 
 *.csv 
-message.html 
+*.h5 
+*.spec 
 __pycache__/
-dist/
-venv/
 build/
+dist/
+message.html 
+venv/
