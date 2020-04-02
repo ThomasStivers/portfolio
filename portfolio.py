@@ -248,7 +248,6 @@ class Portfolio(object):
             raise ValueError("quantity must be > 0.")
         if not testing:
             self.holdings.loc[date:, symbol] -= quantity
-        print(self.holdings[symbol].tail())
         return self.holdings.loc[date]
 
     def add_cash(
@@ -285,7 +284,6 @@ class Portfolio(object):
         shares = self.to_shares(symbol, quantity, date)
         if not testing:
             self.holdings.loc[date:, symbol] += shares
-        print(self.holdings[symbol].tail())
         return self.holdings.loc[date]
 
     def remove_cash(
@@ -306,7 +304,6 @@ class Portfolio(object):
         shares = self.to_shares(symbol, quantity, date)
         if not testing:
             self.holdings.loc[date:, symbol] -= shares
-        print(self.holdings[symbol].tail())
         return self.holdings.loc[date]
 
     def to_cash(self, symbol: str, shares: float, date: pd.Timestamp) -> float:
@@ -321,10 +318,11 @@ class Portfolio(object):
             The value of the shares of symbol in dollars on the specified date.
 
         """
-        last_close = self.data["Close"].iloc[
-            self.data["Close"].index.get_loc(date, method="ffill")
-        ][symbol]
-        cash = shares * last_close
+        prices = self.data[("Close", symbol)]
+        date_index = prices.index.get_loc(date, method="ffill")
+        date = prices.index[date_index]
+        price = prices[date]
+        cash = shares * price
         print(f"${cash:,.2f} = {shares:,.3f} shares of {symbol}")
         return cash
 
