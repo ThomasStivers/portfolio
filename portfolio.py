@@ -445,7 +445,10 @@ class Portfolio(object):
             table_html = table_data.to_html(
                 float_format="${:,.2f}".format, classes="symbol_table"
             )
+            report["html"] = report["text"]
             report["text"] = BeautifulSoup(report["text"], features="lxml").get_text()
+            # Add a placeholder table which will be replaced with proper html.
+            report["html"] += "\n<table/>"
             report["text"] += "\n"
             report["text"] += table_data.to_markdown(
                 floatfmt=",.2f", headers=table_headers
@@ -478,7 +481,7 @@ class Portfolio(object):
                 "</style>\n"
                 "</head>\n"
                 "<body>\n"
-                f"{markdown.convert(report['text'])}\n"
+                f"{markdown.convert(report['html'])}\n"
                 "</body>\n"
                 "</html>\n"
             ),
