@@ -359,7 +359,7 @@ class Portfolio(object):
             A dictionary with two keys "text" and "html" which contain the same report in those formats.
 
         """
-        markdown = Markdown(extensions=["footnotes", "tables"])
+        markdown = Markdown(extensions=["tables"])
         report = {"text": "", "html": ""}
         charts = {"up": "&#X1F4C8;", "down": "&#X1F4C9;"}
         colors = [
@@ -372,13 +372,9 @@ class Portfolio(object):
             "#ffa600",
         ]
         symbol_colors = dict(zip(self.holdings.columns, colors))
-        footnotes = (
-            "[^1]: Rankings are based on the cash value of the change in the portfolio "
-            "on a given date with 1 being the best day of the year.\n"
-        )
         date_string = pd.Timestamp(args.date).strftime("%B %d, %Y")
         value = self.value.loc[args.date].sum()
-        daily_totals = self.value.sum(axis=1)
+        daily_totals = self.value.sum(axis=1).dropna()
         difference = daily_totals.diff()[args.date]
         if difference < 0:
             difference_string = (
@@ -389,7 +385,8 @@ class Portfolio(object):
                 f'an increase of <span class="increase">${difference:,.2f}</span>'
             )
         pct_difference = daily_totals.pct_change(1)[args.date] * 100
-        ranking = daily_totals.diff().rank(ascending=False)[args.date]
+        rank_change = daily_totals.diff().rank(ascending=False)[args.date]
+        rank_value = daily_totals.rank(ascending=False)[args.date]
         if args.date in pd.date_range(args.date, freq="bm", periods=1):
             report["text"] += f"{self.periodic_report(args, '28d')}\n"
         if args.date.dayofweek == 4:
@@ -400,7 +397,10 @@ class Portfolio(object):
             f"Total holdings were **${value:,.2f}.** "
             f"This is {difference_string} "
             f"or {abs(pct_difference):.2f}% from the previous day. "
-            f"The annual ranking[^1] is {ranking:.0f} out of {len(self.value) - 1}.\n"
+            f"The annual ranking for the changes on this day is {rank_change:.0f} "
+            f"of {len(daily_totals)}. "
+            f"and this portfolio balance is ranked {rank_value:.0f} "
+            f"of {len(daily_totals)}.\n"
         )
         if args.symbol:
             report["text"] += f"## Individual Holdings Reports ##\n"
@@ -418,7 +418,8 @@ class Portfolio(object):
                         f'<span class="increase">${difference:,.2f}</span>'
                     )
                 pct_difference = self.value[symbol].pct_change(1)[args.date] * 100
-                ranking = self.value[symbol].diff().rank(ascending=False)[args.date]
+                rank_change = self.value[symbol].diff().rank(ascending=False)[args.date]
+                rank_value = self.value[symbol].rank(ascending=False)[args.date]
                 colored_symbol = (
                     f'<span style="color: {symbol_colors[symbol]}">{symbol}</span>'
                 )
@@ -426,8 +427,10 @@ class Portfolio(object):
                     f"*   Total holdings of {colored_symbol} were **${value:,.2f}.** "
                     f"This is {difference_string} "
                     f"or {abs(pct_difference):.2f}% from the previous day. "
-                    f"The annual ranking is {ranking:.0f} "
-                    f"out of {len(self.value) - 1}  for {colored_symbol}.\n"
+                    f"The annual ranking for the change in {symbol} is {rank_change:.0f} "
+                    f" of {len(self.value) - 1} "
+                    f"and the balance for {symbol} is ranked {rank_value:.0f} "
+                    f"of {len(self.value) - 1} for {colored_symbol}.\n"
                 )
             table_range = self.value.index[
                 self.value.index.get_loc(args.date)
@@ -447,8 +450,6 @@ class Portfolio(object):
             report["text"] += table_data.to_markdown(
                 floatfmt=",.2f", headers=table_headers
             )
-        report["text"] += "\n\n"
-        report["text"] += footnotes
         symbol_table_row_styles = "\n".join(
             [
                 f"tbody tr:nth-child({row+1}) {{ color: {color}; }}"
