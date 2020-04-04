@@ -23,10 +23,6 @@ Examples:
     | TEST   | ...    | ... | ...    | ...    | ... |
     | SAMPLE | ...    | ... | ...    | ...    | ... |
     | Total  | ...    | ... | ...    | ...    | ... |
-    <BLANKLINE>
-    [^1]: Rankings are based on the cash value of the change in the portfolio on a given date with 1 being the best day of the year.
-    <BLANKLINE>
-
 
 """
 import argparse
@@ -186,23 +182,19 @@ class Portfolio(object):
             f"worth ${self.value.iloc[-1].sum():,.2f}."
         )
 
-    def add_shares(
-        self, symbol: str, quantity: float, date: pd.Timestamp, testing: bool = True
-    ) -> pd.Series:
+    def add_shares(self, symbol: str, quantity: float, date: pd.Timestamp) -> pd.Series:
         """Add shares of an instrument to holdings on given date.
 
         Args:
             symbol: A stock ticker symbol.
             quantity: The number of shares to be added.
             date: The date on which the shares should be added to the portfolio.
-            testing: If true the addition will not be saved in the portfolio, but the
-                share price will be calculated. If false then the addition will be made.
 
         Returns:
             The holdings on the given date with the addition included.
 
         Examples:
-            >>> output = Portfolio().add_shares('FIPDX', 100, '2020-01-02', testing=True)
+            >>> output = Portfolio().add_shares('FIPDX', 100, '2020-01-02')
             1655.246
             >>> output['FIPDX'] == 1555.246
             True
@@ -213,10 +205,7 @@ class Portfolio(object):
             raise KeyError("symbol must be in holdings.")
         if quantity <= 0:
             raise ValueError("quantity must be > 0.")
-        if not testing:
-            self.holdings.loc[date:, symbol] += quantity
-        else:
-            print(self.holdings.loc[date:, symbol] + quantity)
+        self.holdings.loc[date:, symbol] += quantity
         return self.holdings.loc[date]
 
     def add_symbol(self, symbol: str, quantity: float, date: pd.Timestamp) -> None:
@@ -228,7 +217,7 @@ class Portfolio(object):
             self.holdings.loc[date:, symbol] = quantity
 
     def remove_shares(
-        self, symbol: str, quantity: float, date: pd.Timestamp, testing: bool = True
+        self, symbol: str, quantity: float, date: pd.Timestamp
     ) -> pd.Series:
         """Remove shares of an instrument from holdings on given date.
 
@@ -236,7 +225,6 @@ class Portfolio(object):
             symbol: A stock ticker symbol.
             quantity: The number of shares to be removed.
             date: The date on which the shares should be removed from the portfolio.
-            testing: If true the removal will not be saved in the portfolio, but the share price will be calculated. If false then the removal will be made.
 
         Returns:
             The holdings on the given date with the removal included.
@@ -246,32 +234,26 @@ class Portfolio(object):
             raise KeyError("symbol must be in holdings.")
         if quantity <= 0:
             raise ValueError("quantity must be > 0.")
-        if not testing:
-            self.holdings.loc[date:, symbol] -= quantity
+        self.holdings.loc[date:, symbol] -= quantity
         return self.holdings.loc[date]
 
-    def add_cash(
-        self, symbol: str, quantity: float, date: pd.Timestamp, testing: bool = True
-    ) -> pd.Series:
+    def add_cash(self, symbol: str, quantity: float, date: pd.Timestamp) -> pd.Series:
         """Add shares purchasable for  cash value of symbol to holdings on given date.
 
         Args:
             symbol: A stock ticker symbol.
             quantity: The number of dollars to be added.
             date: The date on which the dollars should be added to the portfolio.
-            testing: If true the addition will not be saved in the portfolio,
-                but the share price will be calculated.
-                If false then the addition will be made.
 
         Returns:
             The holdings on the given date with the addition included.
 
         Examples:
-            >>> Portfolio().add_shares('ERROR', 100, pd.Timestamp('2020-01-01'), testing=False)
+            >>> Portfolio().add_shares('ERROR', 100, pd.Timestamp('2020-01-01'))
             Traceback (most recent call last):
                 ...
             KeyError: symbol must be in holdings.
-            >>> Portfolio().add_shares('FSKAX', -100, pd.Timestamp('2020-01-01'), testing=True)
+            >>> Portfolio().add_shares('FSKAX', -100, pd.Timestamp('2020-01-01'))
             Traceback (most recent call last):
                 ...
             ValueError: quantity must be > 0.
@@ -282,12 +264,11 @@ class Portfolio(object):
         if quantity <= 0:
             raise ValueError("quantity must be > 0.")
         shares = self.to_shares(symbol, quantity, date)
-        if not testing:
-            self.holdings.loc[date:, symbol] += shares
+        self.holdings.loc[date:, symbol] += shares
         return self.holdings.loc[date]
 
     def remove_cash(
-        self, symbol: str, quantity: float, date: pd.Timestamp, testing: bool = True
+        self, symbol: str, quantity: float, date: pd.Timestamp
     ) -> pd.Series:
         """Remove shares purchasable by given quantity of cash of an instrument from holdings on given date.
 
@@ -295,15 +276,13 @@ class Portfolio(object):
             symbol: A stock ticker symbol.
             quantity: The number of dollars to be removed.
             date: The date on which the dollars should be removed from the portfolio.
-            testing: If true the removal will not be saved in the portfolio, but the share price will be calculated. If false then the removal will be made.
 
         Returns:
             The holdings on the given date with the removal included.
 
         """
         shares = self.to_shares(symbol, quantity, date)
-        if not testing:
-            self.holdings.loc[date:, symbol] -= shares
+        self.holdings.loc[date:, symbol] -= shares
         return self.holdings.loc[date]
 
     def to_cash(self, symbol: str, shares: float, date: pd.Timestamp) -> float:
@@ -427,10 +406,11 @@ class Portfolio(object):
                     f"*   Total holdings of {colored_symbol} were **${value:,.2f}.** "
                     f"This is {difference_string} "
                     f"or {abs(pct_difference):.2f}% from the previous day. "
-                    f"The annual ranking for the change in {symbol} is {rank_change:.0f} "
-                    f" of {len(self.value) - 1} "
-                    f"and the balance for {symbol} is ranked {rank_value:.0f} "
-                    f"of {len(self.value) - 1} for {colored_symbol}.\n"
+                    f"The annual ranking for the change in {colored_symbol} "
+                    f"is {rank_change:.0f} "
+                    f" of {len(self.value)} "
+                    f"and the balance for {colored_symbol} is ranked {rank_value:.0f} "
+                    f"of {len(self.value)} for {colored_symbol}.\n"
                 )
             table_range = self.value.index[
                 self.value.index.get_loc(args.date)
@@ -528,7 +508,7 @@ class Portfolio(object):
                     (
                         f"*   Holdings of {symbol} changed by {shares:,.3f} shares "
                         f"valued at ${self.data.Close.loc[date, symbol] * shares:,.2f} "
-                        f"on {date.strftime('%m/%d')}."
+                        f"on {date.strftime('%m/%d')}.\n"
                     )
                     for date, shares in change.items()
                     if shares > 0
@@ -659,11 +639,6 @@ class Portfolio(object):
             action="store_true",
             help="Only use sample data in the portfolio.",
         )
-        parser.add_argument(
-            "--save",
-            action="store_true",
-            help="Save changes made with --add or --remove options permanently.",
-        )
         return parser.parse_args()
 
 
@@ -786,23 +761,22 @@ def main() -> None:
     text_message = str()
     with Portfolio() as portfolio:
         args = portfolio.parse_args()
-        testing = not args.save
         if args.interactive:
             Interactive(portfolio, args)
         elif args.add:
             args.add[1] = float(args.add[1])
             args.add[2] = pd.Timestamp(args.add[2])
             if args.cash:
-                row = portfolio.add_cash(*args.add, testing)
+                row = portfolio.add_cash(*args.add)
             else:
-                row = portfolio.add_shares(*args.add, testing)
+                row = portfolio.add_shares(*args.add)
         elif args.remove:
             args.remove[1] = float(args.remove[1])
             args.remove[2] = pd.Timestamp(args.remove[2])
             if args.cash:
-                row = portfolio.remove_cash(*args.remove, testing)
+                row = portfolio.remove_cash(*args.remove)
             else:
-                row = portfolio.remove_shares(*args.remove, testing)
+                row = portfolio.remove_shares(*args.remove)
         elif args.date:
             args.date = pd.Timestamp(args.date)
         elif args.list:
