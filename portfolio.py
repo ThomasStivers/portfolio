@@ -324,9 +324,17 @@ class Portfolio(object):
         print(f"${cash:,.2f} = {shares:,.3f} shares of {symbol}")
         return shares
 
-    def export(self) -> None:
-        """Export the holdings in the portfolio to a csv file."""
-        self.holdings.drop_duplicates().to_csv("holdings.csv")
+    def export(self, filename: str = "holdings.csv") -> None:
+        """Export the holdings in the portfolio to a csv file.
+
+        Args:
+            filename: A CSV or XLSX file where holdings data should be exported.
+
+            """
+        if filename.endswith(".csv"):
+            self.holdings.drop_duplicates().to_csv(filename)
+        elif filename.endswith(".xlsx"):
+            self.holdings.drop_duplicates().to_excel(filename, sheet_name="holdings")
 
     def report(self, args: argparse.Namespace) -> dict:
         """Produce a dictionary of two report strings in text and html.
@@ -606,10 +614,7 @@ class Portfolio(object):
             help="Provide more detailed information.",
         )
         parser.add_argument(
-            "-x",
-            "--export",
-            action="store_true",
-            help="Export holdings to a csv file.",
+            "-x", "--export", help="Export holdings to a csv or xlsx file.",
         )
         parser.add_argument(
             "-A",
@@ -722,9 +727,10 @@ class Interactive(object):
         self.show_menu()
 
     def export(self) -> None:
-        """Export the holdings in the portfolio to a csv file."""
-        self.portfolio.export()
-        print("Portfolio exported.")
+        """Export the holdings in the portfolio to a csv or xlsx file."""
+        filename = input("Name of file to export: ")
+        self.portfolio.export(filename)
+        print(f"Portfolio exported to {filename}.")
         self.show_menu()
 
     def increase(self):
