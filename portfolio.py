@@ -110,7 +110,6 @@ class Portfolio(object):
         """
         today = pd.Timestamp.floor(pd.Timestamp.today(), "D")
         yesterday = today - pd.Timedelta("1D")
-        # ytd_range = pd.date_range(pd.Timestamp(today.year, 1, 1), today, freq="B")
         if path:
             self.path = Path(path)
         if type(data) == pd.DataFrame and type(holdings) == pd.DataFrame:
@@ -138,7 +137,7 @@ class Portfolio(object):
             self.data = DataReader(
                 self.holdings.columns, "yahoo", pd.Timestamp(today.year - 1, 12, 31)
             )
-        self.holdings = self.holdings.reindex(self.data.index, method="ffill")
+        self.holdings = self.holdings.reindex(self.data.index, method="ffill").dropna()
 
     @property
     def value(self) -> pd.DataFrame:
@@ -359,6 +358,7 @@ class Portfolio(object):
             "#ffa600",
         ]
         symbol_colors = dict(zip(self.holdings.columns, colors))
+        args.date = self.data.index[self.data.index.get_loc(args.date, method="pad")]
         date_string = pd.Timestamp(args.date).strftime("%B %d, %Y")
         value = self.value.loc[args.date].sum()
         daily_totals = self.value.sum(axis=1).dropna()
