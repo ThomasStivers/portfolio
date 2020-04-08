@@ -26,12 +26,14 @@ Examples:
 
 """
 import argparse
+import configparser
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
 from pathlib import Path
 import smtplib
 import sys
+import textwrap
 
 # Use BeautifulSoup to get plain text version of the report.
 from bs4 import BeautifulSoup
@@ -794,9 +796,13 @@ def main() -> None:
         portfolio.path = args.file
         if args.verbose:
             text_message = portfolio.report(args)["text"]
-            print(text_message, end="")
+            text_message = "\n".join(
+                [textwrap.fill(txt, 120) for txt in text_message.split("\n")]
+            )
+            print(text_message)
         if args.email:
             portfolio.email(args)
+        # portfolio.config(args)
 
 
 if __name__ == "__main__":
