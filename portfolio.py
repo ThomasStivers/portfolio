@@ -1,35 +1,11 @@
 #!/usr/bin/python3
-"""Portfolio Management Tool
-
-Examples:
-    >>> import portfolio
-
-    Create a portfolio from test data and holdings.
-
-    >>> pf = portfolio.Portfolio(None, portfolio.test_data(), portfolio.test_holdings())
-    >>> print(pf) # doctest: +ELLIPSIS
-    Portfolio holding ... instruments for ... dates worth $...
-    >>> sys.argv = ["", "--all", "--verbose"]
-    >>> args = pf.parse_args()
-    >>> print(pf.report(args)["text"]) # doctest: +ELLIPSIS
-    # ... Portfolio Report for January 07, 2020 #
-    Total holdings were **$....** This is ... of $... or ...% from the previous day. The annual ranking[^1] is ... out of ...
-    ## Individual Holdings Reports ##
-    *   Total holdings of TEST were **$....** This is ... of ($...) or ...% from the previous day. The annual ranking is ... out of ...  for TEST.
-    *   Total holdings of SAMPLE were **$....** This is ... of $... or ...% from the previous day. The annual rank ing is ... out of ...  for SAMPLE.
-    <BLANKLINE>
-    |        |       01/01 |    01/02 |       01/03 |       01/06 |    01/07 |
-    |:-------|------------:|---------:|------------:|------------:|---------:|
-    | TEST   | ...    | ... | ...    | ...    | ... |
-    | SAMPLE | ...    | ... | ...    | ...    | ... |
-    | Total  | ...    | ... | ...    | ...    | ... |
-
-"""
+"""A tool for managing a stock portfolio."""
 import argparse
 import configparser
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
+import os
 from pathlib import Path
 import smtplib
 import sys
@@ -78,7 +54,32 @@ def test_holdings() -> pd.DataFrame:
 
 
 class Portfolio(object):
-    """Provides information about a portfolio of financial instruments."""
+    """Provides information about a portfolio of financial instruments.
+
+    Examples:
+        >>> import portfolio
+
+        Create a portfolio from test data and holdings.
+
+        >>> pf = portfolio.Portfolio(None, portfolio.test_data(), portfolio.test_holdings())
+        >>> print(pf) # doctest: +ELLIPSIS
+        Portfolio holding ... instruments for ... dates worth $...
+        >>> sys.argv = ["", "--all", "--verbose"]
+        >>> args = pf.parse_args()
+        >>> print(pf.report(args)["text"]) # doctest: +ELLIPSIS
+        # ... Portfolio Report for January 07, 2020 #
+        Total holdings were **$....** This is ... of $... or ...% from the previous day. The annual ranking[^1] is ... out of ...
+        ## Individual Holdings Reports ##
+        *   Total holdings of TEST were **$.    ...** This is ... of ($...) or ...% from the previous day. The annual ranking is ... out of ...  for TEST.
+        *   Total holdings of SAMPLE were **$....** This is ... of $... or ...% from the previous day. The annual rank ing is ... out of ...  for SAMPLE.
+        <BLANKLINE>
+        |        |           01/01 |    01/02 |       01/03 |       01/06 |    01/07 |
+        |:-------|------    ------:|---------:|------------:|------------:|---------:|
+        | TEST   | ...    |     ... | ...    | ...    | ... |
+        | SAMPLE | ...    | ...     | ...    | ...    | ... |
+        | Total  | ...    | ... | ..    .    | ...    | ... |
+
+    """
 
     def __init__(
         self,
@@ -419,8 +420,8 @@ class Portfolio(object):
                     f"The annual ranking for the change in {colored_symbol} "
                     f"is {rank_change:.0f} "
                     f" of {len(self.value)} "
-                    f"and the balance for {colored_symbol} is ranked {rank_value:.0f} "
-                    f"of {len(self.value)} for {colored_symbol}.\n"
+                    f"and the balance is ranked {rank_value:.0f} "
+                    f"of {len(self.value)}.\n"
                 )
             table_range = self.value.index[
                 self.value.index.get_loc(args.date)
@@ -802,7 +803,6 @@ def main() -> None:
             print(text_message)
         if args.email:
             portfolio.email(args)
-        # portfolio.config(args)
 
 
 if __name__ == "__main__":
