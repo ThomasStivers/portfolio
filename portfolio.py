@@ -70,16 +70,16 @@ class Portfolio(object):
         # ... Portfolio Report for January 07, 2020 #
         Total holdings were **$....** This is ... of $... or ...% from the previous day. The annual ranking[^1] is ... out of ...
         ## Individual Holdings Reports ##
-        *   Total holdings of TEST were **$....** This is ... of ($...) or ...% from the previous day. The annual ranking is ... out of ...  for TEST.
-        *   Total holdings of SAMPLE were **$...    .** This is ... of $... or ...% from the previous day. The annual rank ing is ... out of ...  for SAMPLE.
+        *   Total holdings of TEST were **$.    ...** This is ... of ($...) or ...% from the previous day. The annual ranking is ... out of ...  for TEST.
+        *   Total holdings of SAMPLE were **$....** This is ... of $... or ...% from the previous day. The annual rank ing is ... out of ...  for SAMPLE.
         <BLANKLINE>
         |        |           01/01 |    01/02 |       01/03 |       01/06 |    01/07 |
-        |:-------|------------:|---------:|------------:|------------:|---------:|
+        |:-------|------    ------:|---------:|------------:|------------:|---------:|
         | TEST   | ...    |     ... | ...    | ...    | ... |
         | SAMPLE | ...    | ...     | ...    | ...    | ... |
-        | Total  | ...    | ... | ...    | ...    | ... |
+        | Total  | ...    | ... | ..    .    | ...    | ... |
 
-"""
+    """
 
     def __init__(
         self,
