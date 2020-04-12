@@ -407,7 +407,8 @@ class Portfolio(object):
                 rank_value = self.value[symbol].rank(ascending=False)[args.date]
                 colored_symbol = f'<span style="color: {self.config[symbol]["color"]}">{symbol}</span>'
                 report["text"] += (
-                    f"*   Total holdings of {colored_symbol} were **${value:,.2f}.** "
+                    f"*{*   charts['up'] if difference > 0 else charts['down']} "
+                    f"Total holdings of {colored_symbol} were **${value:,.2f}.** "
                     f"This is {difference_string} "
                     f"or {abs(pct_difference):.2f}% from the previous day. "
                     f"The annual ranking for the change in {colored_symbol} "
