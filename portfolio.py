@@ -520,14 +520,18 @@ class Portfolio(object):
             report += "".join(changes)
         return report
 
-    def email(self, args: argparse.Namespace = None) -> str:
+    def email(self, args: argparse.Namespace = None) -> bool:
         """Send the portfolio report by email."""
-        server = self.config["email"]["smtp_server"]
-        port = self.config["email"]["smtp_port"]
-        user = self.config["email"]["smtp_user"]
-        password = self.config["email"]["smtp_password"]
-        sender = self.config["email"]["sender"]
-        recipients = self.config["email"]["recipients"].splitlines()[1:]
+        try:
+            server = self.config["email"]["smtp_server"]
+            port = self.config["email"]["smtp_port"]
+            user = self.config["email"]["smtp_user"]
+            password = self.config["email"]["smtp_password"]
+            sender = self.config["email"]["sender"]
+            recipients = self.config["email"]["recipients"].splitlines()[1:]
+        except KeyError:
+            print(f"Email configuration incomplete.")
+            return False
         message = MIMEMultipart("alternative")
         message["From"] = sender
         message["Reply-To"] = sender
@@ -544,12 +548,13 @@ class Portfolio(object):
         message.attach(part2)
         if args.test:
             print(message.as_string())
-            return
+            return False
         with smtplib.SMTP(server, int(port)) as smtp:
             smtp.ehlo()
             smtp.starttls()
             smtp.login(user, password)
             smtp.send_message(message)
+            return True
 
     def parse_args(self) -> argparse.Namespace:
         """Parse the command line arguments determining what type of report to produce.
