@@ -171,8 +171,6 @@ class Portfolio(object):
         """
         self.holdings.to_hdf(self.path, key="/holdings")
         self.data.to_hdf(self.path, key="/data")
-        with open("portfolio.ini", "w") as config_file:
-            self.config.write(config_file)
 
     def __str__(self) -> str:
         """Briefly describe the holdings in the portfolio in a string.
@@ -524,14 +522,15 @@ class Portfolio(object):
 
     def email(self, args: argparse.Namespace = None) -> str:
         """Send the portfolio report by email."""
-        sender = "Thomas Stivers <thomas.stivers+portfolio@gmail.com>"
-        recipients = [
-            "Thomas Stivers <thomas.stivers@gmail.com>",
-            "Heather Stivers <heather.stivers@gmail.com>",
-        ]
+        server = self.config["email"]["smtp_server"]
+        port = self.config["email"]["smtp_port"]
+        user = self.config["email"]["smtp_user"]
+        password = self.config["email"]["smtp_password"]
+        sender = self.config["email"]["sender"]
+        recipients = self.config["email"]["recipients"].splitlines()[1:]
         message = MIMEMultipart("alternative")
         message["From"] = sender
-        message["Reply-To"] = "thomas.stivers@gmail.com"
+        message["Reply-To"] = sender
         message["To"] = ", ".join(recipients)
         message["Message-ID"] = make_msgid(domain="gmail.com")
         message["Date"] = formatdate(localtime=True)
@@ -546,10 +545,10 @@ class Portfolio(object):
         if args.test:
             print(message.as_string())
             return
-        with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
+        with smtplib.SMTP(server, int(port)) as smtp:
             smtp.ehlo()
             smtp.starttls()
-            smtp.login("thomas.stivers@gmail.com", "cwtlgzcpaoxhmlib")
+            smtp.login(user, password)
             smtp.send_message(message)
 
     def parse_args(self) -> argparse.Namespace:
