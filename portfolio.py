@@ -5,6 +5,7 @@ import configparser
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
+from getpass import getpass
 import os
 from pathlib import Path
 import smtplib
@@ -663,6 +664,7 @@ class Interactive(object):
                     "Set the share count for an existing symbol.",
                     "Add a new symbol to the portfolio.",
                     "Report on portfolio performance.",
+                    "Configure email setup.",
                     "Email portfolio report.",
                     "Export the portfolio to a file.",
                     "Quit",
@@ -704,6 +706,34 @@ class Interactive(object):
             shares = float(quantity)
             self.portfolio.add_symbol(symbol, shares, date)
             self.show_menu()
+
+    def configure(self) -> None:
+        """Configure email settings."""
+        config = self.portfolio.config
+        email = config["email"]
+        email["smtp_server"] = input(f"SMTP Server ({email['smtp_server']}): ")
+        email["smtp_port"] = input(f"SMTP port ({email['smtp_port']}): ")
+        email["smtp_user"] = input(f"SMTP User Name ({email['smtp_user']}): ")
+        email["smtp_password"] = getpass(
+            prompt=f"SMTP Password ({len(email['smtp_password'])* '*'}): "
+        )
+        email["sender"] = input("From: ")
+        recipients = [""]
+        while True:
+            recipient = input("To: ")
+            if recipient == "":
+                break
+            recipients.append(recipient)
+        if len(recipients) > 2:
+            email["recipients"] = "\n".join(recipients)
+        elif len(recipients) == 1:
+            raise ValueError("At least one recipient is required.")
+        else:
+            email["recipients"] = recipients[1]
+        config["email"] = email
+        with open(os.path.join(str(Path.home()), self.config_name)) as config_file:
+            config.write(config_file)
+        self.show_menu()
 
     def decrease(self) -> None:
         """Remove shares of a symbol from the portfolio on a given date."""
@@ -805,4 +835,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("Cancelled")
