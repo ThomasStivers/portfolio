@@ -569,7 +569,7 @@ class Portfolio(object):
             >>> pf.parse_args()
 
         """
-        parser = argparse.ArgumentParser(description=self.__doc__)
+        parser = argparse.ArgumentParser(description=__doc__)
         parser.add_argument(
             "-a",
             "--all",
@@ -633,7 +633,7 @@ class Portfolio(object):
             default="holdings.h5",
             help=(
                 "Name of the file where holdings and market data are stored. "
-                "The default is %(default)s.",
+                "The default is %(default)s."
             ),
         )
         parser.add_argument(
