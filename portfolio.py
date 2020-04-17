@@ -558,15 +558,14 @@ class Portfolio(object):
             smtp.send_message(message)
             return True
 
-    def parse_args(self) -> argparse.Namespace:
+    def parse_args(self, argv: list = sys.argv[1:]) -> argparse.Namespace:
         """Parse the command line arguments determining what type of report to produce.
+
+        Args:
+            argv: List of command line arguments.
 
         Returns:
             The parsed argument list from the command line.
-
-        Tests:
-            >>> pf=Portfolio(data=test_data(), holdings=test_holdings())
-            >>> pf.parse_args()
 
         """
         parser = argparse.ArgumentParser(description=__doc__)
@@ -648,7 +647,8 @@ class Portfolio(object):
             action="store_true",
             help="Only use sample data in the portfolio.",
         )
-        return parser.parse_args()
+        print(argv)
+        return parser.parse_args(argv)
 
 
 class Interactive(object):
