@@ -6,4 +6,4 @@ __pycache__/
 build/
 dist/
 message.html 
-venv/
+docs/_build/

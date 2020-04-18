@@ -29,7 +29,11 @@ pd.set_option("colheader_justify", "center")
 
 
 def test_data() -> pd.DataFrame:
-    """Generate sambple data."""
+    """Generate sambple data.
+
+    :returns: A `DataFrame` containing 5 days worth of random values for 2 sample symbols.
+
+    """
     data = pd.DataFrame(
         data=10 * np.random.randn(5, 12) + 100,
         index=pd.date_range("2020-01-01", periods=5, freq="b"),
@@ -248,24 +252,11 @@ class Portfolio(object):
     def add_cash(self, symbol: str, quantity: float, date: pd.Timestamp) -> pd.Series:
         """Add shares purchasable for  cash value of symbol to holdings on given date.
 
-        Args:
-            symbol: A stock ticker symbol.
-            quantity: The number of dollars to be added.
-            date: The date on which the dollars should be added to the portfolio.
+        :param symbol: A stock ticker symbol.
+        :param quantity: The number of dollars to be added.
+        :param date: The date on which the dollars should be added to the portfolio.
 
-        Returns:
-            The holdings on the given date with the addition included.
-
-        Examples:
-            >>> Portfolio().add_shares('ERROR', 100, pd.Timestamp('2020-01-01'))
-            Traceback (most recent call last):
-                ...
-            KeyError: symbol must be in holdings.
-            >>> Portfolio().add_shares('FSKAX', -100, pd.Timestamp('2020-01-01'))
-            Traceback (most recent call last):
-                ...
-            ValueError: quantity must be > 0.
-
+        :returns: The holdings on the given date with the addition included.
         """
         if symbol not in self.holdings.columns:
             raise KeyError("symbol must be in holdings.")
@@ -280,14 +271,11 @@ class Portfolio(object):
     ) -> pd.Series:
         """Remove shares purchasable by given quantity of cash of an instrument from holdings on given date.
 
-        Args:
-            symbol: A stock ticker symbol.
-            quantity: The number of dollars to be removed.
-            date: The date on which the dollars should be removed from the portfolio.
+        :param symbol: A stock ticker symbol.
+        :param quantity: The number of dollars to be removed.
+        :param date: The date on which the dollars should be removed from the portfolio.
 
-        Returns:
-            The holdings on the given date with the removal included.
-
+        :returns: The holdings on the given date with the removal included.
         """
         shares = self.to_shares(symbol, quantity, date)
         self.holdings.loc[date:, symbol] -= shares
@@ -296,14 +284,11 @@ class Portfolio(object):
     def to_cash(self, symbol: str, shares: float, date: pd.Timestamp) -> float:
         """Get the cash value  of a given number of shares of an instrument  on a given date.
 
-        Args:
-            symbol: The ticker symbol to get the cash value.
-            shares: The number of shares to get the cash value for.
-            date: The date whose closing price should be used.
+        :param symbol: The ticker symbol to get the cash value.
+        :param shares: The number of shares to get the cash value for.
+        :param date: The date whose closing price should be used.
 
-        Returns:
-            The value of the shares of symbol in dollars on the specified date.
-
+        :returns: The value of the shares of symbol in dollars on the specified date.
         """
         prices = self.data[("Close", symbol)]
         date_index = prices.index.get_loc(date, method="ffill")
@@ -316,14 +301,11 @@ class Portfolio(object):
     def to_shares(self, symbol: str, cash: float, date: pd.Timestamp) -> float:
         """Get the number of shares of an instrument purchasable for a given price on a given date.
 
-        Args:
-            symbol: The ticker symbol to get the share count.
-            cash: The number of dollars to get the share count for.
-            date: The date whose closing price should be used.
+        :param symbol: The ticker symbol to get the share count.
+        :param cash: The number of dollars to get the share count for.
+        :param date: The date whose closing price should be used.
 
-        Returns:
-            The count of  shares of symbol purchasable for cash on the specified date.
-
+        :returns: The count of  shares of symbol purchasable for cash on the specified date.
         """
         last_close = self.data["Close"].iloc[
             self.data["Close"].index.get_loc(date, method="ffill")
@@ -335,9 +317,7 @@ class Portfolio(object):
     def export(self, filename: str = "holdings.csv") -> None:
         """Export the holdings in the portfolio to a csv file.
 
-        Args:
-            filename: A CSV or XLSX file where holdings data should be exported.
-
+        :param filename: A CSV or XLSX file where holdings data should be exported.
             """
         if filename.endswith(".csv"):
             self.holdings.drop_duplicates().to_csv(filename)
@@ -347,12 +327,9 @@ class Portfolio(object):
     def report(self, args: argparse.Namespace) -> dict:
         """Produce a dictionary of two report strings in text and html.
 
-        Args:
-            args: The arguments given on the command line and parsed by Portfolio.parse_args().
+        :param args: The arguments given on the command line and parsed by Portfolio.parse_args().
 
-        Returns:
-            A dictionary with two keys "text" and "html" which contain the same report in those formats.
-
+        :returns: A dictionary with two keys "text" and "html" which contain the same report in those formats.
         """
         markdown = Markdown(extensions=["tables"])
         report = {"text": "", "html": ""}
@@ -558,16 +535,15 @@ class Portfolio(object):
             smtp.send_message(message)
             return True
 
-    def parse_args(self, argv: list = sys.argv[1:]) -> argparse.Namespace:
+    def parse_args(self, argv) -> argparse.Namespace:
         """Parse the command line arguments determining what type of report to produce.
 
-        Args:
-            argv: List of command line arguments.
+        :param argv: List of command line arguments.
 
-        Returns:
-            The parsed argument list from the command line.
-
+        :returns: The parsed argument list from the command line.
         """
+        if not argv:
+            argv = sys.argv
         parser = argparse.ArgumentParser(description=__doc__)
         parser.add_argument(
             "-a",
@@ -780,6 +756,7 @@ class Interactive(object):
             self.show_menu()
 
     def quit(self) -> None:
+        """Quits the interactive session."""
         exit()
 
     def report(self) -> None:
