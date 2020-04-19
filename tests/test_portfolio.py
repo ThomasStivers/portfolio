@@ -74,10 +74,11 @@ def test_portfolio_remove_shares(sample_portfolio):
     assert sample_portfolio.holdings.loc[date, symbol] == old_value - 10
 
 
-def test_portfolio_parse_args(sample_portfolio):
+def test_portfolio_parse_args():
     argv = ["-aceiltv", "--sample"]
-    args = sample_portfolio.parse_args(argv)
-    assert all(args.symbol == sample_portfolio.holdings.columns)
+    parser = portfolio.make_parser()
+    args = parser.parse_args(argv)
+    assert args.symbol == "all"
     assert args.cash
     assert args.email
     assert args.interactive

@@ -538,10 +538,10 @@ class Portfolio(object):
             return True
 
 
-def make_parser() -> argparse.Namespace:
+def make_parser() -> argparse.ArgumentParser:
     """Parse the command line arguments determining what type of report to produce.
 
-    :returns: The parsed argument list from the command line.
+    :returns: An `argparse.ArgumentParser` with all arguments added.
     """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
