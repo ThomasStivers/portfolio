@@ -9,6 +9,7 @@ black = "*"
 pre-commit = "*"
 pyinstaller = "*"
 sphinx = "*"
+sphinx-argparse = "*"
 
 [packages]
 pandas = "*"

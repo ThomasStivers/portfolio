@@ -35,6 +35,7 @@ release = datetime.datetime.now().strftime("%y.%m")
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",
+    "sphinxarg.ext",
 ]
 
 # Add any paths that contain templates here, relative to this directory.

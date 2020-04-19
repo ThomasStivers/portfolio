@@ -70,7 +70,7 @@ class Portfolio(object):
         >>> print(pf) # doctest: +ELLIPSIS
         Portfolio holding ... instruments for ... dates worth $...
         >>> sys.argv = ["", "--all", "--verbose"]
-        >>> args = pf.parse_args()
+        >>> args = make_parser(sys.argv).parse_args()
         >>> print(pf.report(args)["text"]) # doctest: +ELLIPSIS
         # ... Portfolio Report for January 07, 2020 #
         Total holdings were **$....** This is ... of $... or ...% from the previous day. The annual ranking[^1] is ... out of ...
@@ -327,7 +327,7 @@ class Portfolio(object):
     def report(self, args: argparse.Namespace) -> dict:
         """Produce a dictionary of two report strings in text and html.
 
-        :param args: The arguments given on the command line and parsed by Portfolio.parse_args().
+        :param args: The arguments given on the command line and parsed by make_parser().parse_args().
 
         :returns: A dictionary with two keys "text" and "html" which contain the same report in those formats.
         """
@@ -365,6 +365,8 @@ class Portfolio(object):
             f"and this portfolio balance is ranked {rank_value:.0f} "
             f"of {len(daily_totals)}.\n"
         )
+        if args.symbol == "all":
+            args.symbol = list(self.holdings.columns)
         if args.symbol:
             report["text"] += f"## Individual Holdings Reports ##\n"
             for symbol in args.symbol:
@@ -535,96 +537,90 @@ class Portfolio(object):
             smtp.send_message(message)
             return True
 
-    def parse_args(self, argv) -> argparse.Namespace:
-        """Parse the command line arguments determining what type of report to produce.
 
-        :param argv: List of command line arguments.
+def make_parser() -> argparse.Namespace:
+    """Parse the command line arguments determining what type of report to produce.
 
-        :returns: The parsed argument list from the command line.
-        """
-        if not argv:
-            argv = sys.argv
-        parser = argparse.ArgumentParser(description=__doc__)
-        parser.add_argument(
-            "-a",
-            "--all",
-            dest="symbol",
-            action="store_const",
-            const=list(self.holdings.columns),
-            help="View a report for all holdings.",
-        )
-        parser.add_argument(
-            "-c",
-            "--cash",
-            action="store_true",
-            help="If specified the quantity for the  --add or --remove options will be specified as cash otherwise defaults to shares.",
-        )
-        parser.add_argument(
-            "-d", "--date", default=self.data.index.max(), help="The date to look up."
-        )
-        parser.add_argument(
-            "-e", "--email", action="store_true", help="Email the portfolio report."
-        )
-        parser.add_argument(
-            "-i",
-            "--interactive",
-            action="store_true",
-            help="Interactively make changes to the portfolio.",
-        )
-        parser.add_argument(
-            "-l",
-            "--list",
-            action="store_true",
-            help="Displays a list of the symbols available in the portfolio.",
-        )
-        parser.add_argument(
-            "-s", "--symbol", nargs="+", help="The stock ticker symbol(s) to look up."
-        )
-        parser.add_argument(
-            "-t",
-            "--test",
-            action="store_true",
-            help="Used to test emails without sending.",
-        )
-        parser.add_argument(
-            "-v",
-            "--verbose",
-            action="store_true",
-            help="Provide more detailed information.",
-        )
-        parser.add_argument(
-            "-x", "--export", help="Export holdings to a csv or xlsx file.",
-        )
-        parser.add_argument(
-            "-A",
-            "--add",
-            nargs=3,
-            metavar=("SYMBOL", "SHARES", "DATE"),
-            help="Add shares of a given symbol for a given date.",
-        )
-        parser.add_argument(
-            "-F",
-            "--file",
-            default="holdings.h5",
-            help=(
-                "Name of the file where holdings and market data are stored. "
-                "The default is %(default)s."
-            ),
-        )
-        parser.add_argument(
-            "-R",
-            "--remove",
-            nargs=3,
-            metavar=("SYMBOL", "SHARES", "DATE"),
-            help="Remove shares of a given symbol for a given date.",
-        )
-        parser.add_argument(
-            "--sample",
-            action="store_true",
-            help="Only use sample data in the portfolio.",
-        )
-        print(argv)
-        return parser.parse_args(argv)
+    :returns: The parsed argument list from the command line.
+    """
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "-a",
+        "--all",
+        dest="symbol",
+        action="store_const",
+        const="all",
+        help="View a report for all holdings.",
+    )
+    parser.add_argument(
+        "-c",
+        "--cash",
+        action="store_true",
+        help="If specified the quantity for the  --add or --remove options will be specified as cash otherwise defaults to shares.",
+    )
+    parser.add_argument(
+        "-d", "--date", default=pd.Timestamp.now(), help="The date to look up."
+    )
+    parser.add_argument(
+        "-e", "--email", action="store_true", help="Email the portfolio report."
+    )
+    parser.add_argument(
+        "-i",
+        "--interactive",
+        action="store_true",
+        help="Interactively make changes to the portfolio.",
+    )
+    parser.add_argument(
+        "-l",
+        "--list",
+        action="store_true",
+        help="Displays a list of the symbols available in the portfolio.",
+    )
+    parser.add_argument(
+        "-s", "--symbol", nargs="+", help="The stock ticker symbol(s) to look up."
+    )
+    parser.add_argument(
+        "-t",
+        "--test",
+        action="store_true",
+        help="Used to test emails without sending.",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Provide more detailed information.",
+    )
+    parser.add_argument(
+        "-x", "--export", help="Export holdings to a csv or xlsx file.",
+    )
+    parser.add_argument(
+        "-A",
+        "--add",
+        nargs=3,
+        metavar=("SYMBOL", "SHARES", "DATE"),
+        help="Add shares of a given symbol for a given date.",
+    )
+    parser.add_argument(
+        "-F",
+        "--file",
+        default="holdings.h5",
+        help=(
+            "Name of the file where holdings and market data are stored. "
+            "The default is %(default)s."
+        ),
+    )
+    parser.add_argument(
+        "-R",
+        "--remove",
+        nargs=3,
+        metavar=("SYMBOL", "SHARES", "DATE"),
+        help="Remove shares of a given symbol for a given date.",
+    )
+    parser.add_argument(
+        "--sample", action="store_true", help="Only use sample data in the portfolio.",
+    )
+    return parser
 
 
 class Interactive(object):
@@ -776,7 +772,7 @@ def main() -> None:
     """Use parsed command line options to produce a formatted report."""
     text_message = str()
     with Portfolio() as portfolio:
-        args = portfolio.parse_args()
+        args = make_parser().parse_args()
         if args.interactive:
             Interactive(portfolio, args)
         elif args.add:
