@@ -10,8 +10,8 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import datetime
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.abspath(".."))
@@ -24,8 +24,8 @@ copyright = "2020, Thomas Stivers"
 author = "Thomas Stivers"
 
 # The full version, including alpha/beta/rc tags
-release = datetime.datetime.now().strftime("%y.%m")
-
+release = re.sub('^v', '', os.popen('git describe').read().strip())
+version = release
 
 # -- General configuration ---------------------------------------------------
 
