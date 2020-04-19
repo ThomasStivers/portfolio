@@ -10,6 +10,7 @@ pre-commit = "*"
 pyinstaller = "*"
 sphinx = "*"
 sphinx-argparse = "*"
+pytest = "*"
 
 [packages]
 pandas = "*"
