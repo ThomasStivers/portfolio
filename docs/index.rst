@@ -11,6 +11,7 @@ portfolio's documentation!
    :caption: Contents:
 
    usage
+   license
 
 The **portfolio** tool tracks a collection of stocks, bonds, or mutual funds daily. A report can be generated in html or markdown which summarizes the performance of stocks held in the portfolio.
 

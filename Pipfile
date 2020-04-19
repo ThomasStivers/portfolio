@@ -8,6 +8,7 @@ flake8 = "*"
 black = "*"
 pre-commit = "*"
 pyinstaller = "*"
+sphinx = "*"
 
 [packages]
 pandas = "*"
