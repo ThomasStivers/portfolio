@@ -123,12 +123,14 @@ class Portfolio(object):
         )
         today = pd.Timestamp.floor(pd.Timestamp.today(), "D")
         yesterday = today - pd.Timedelta("1D")
-        if path:
-            self.path = Path(path)
         if type(data) == pd.DataFrame and type(holdings) == pd.DataFrame:
             self.data = data
             self.holdings = holdings
-        elif path and self.path.is_file():
+        if path:
+            self.path = Path(path)
+            if not self.path.is_file():
+                self.path.touch()
+        if self.path.is_file():
             with pd.HDFStore(self.path, "r") as store:
                 self.holdings = store["/holdings"]
                 try:
@@ -636,6 +638,7 @@ class Interactive(object):
                     "Decrease held shares of an existing symbol.",
                     "Set the share count for an existing symbol.",
                     "Add a new symbol to the portfolio.",
+                    "Create a new portfolio.",
                     "Report on portfolio performance.",
                     "Configure email setup.",
                     "Email portfolio report.",
@@ -707,6 +710,14 @@ class Interactive(object):
         with open(os.path.join(str(Path.home()), self.config_name)) as config_file:
             config.write(config_file)
         self.show_menu()
+
+    def create(self):
+        """Create a new portfolio."""
+        filename = input("File name to create: ")
+        path = Path(filename)
+        if not path.exists():
+            self.portfolio = Portfolio(path=path)
+            self.add()
 
     def decrease(self) -> None:
         """Remove shares of a symbol from the portfolio on a given date."""
