@@ -227,6 +227,11 @@ class Portfolio(object):
                 f"symbol is already inportfolio. Use add_shares or add_cash instead."
             )
             self.holdings.loc[date:, symbol] = quantity
+            try:
+                self.data.append(DataReader(symbol, "yahoo", self.data.idxmin()))
+            except KeyError:
+                pass
+
 
     def remove_shares(
         self, symbol: str, quantity: float, date: pd.Timestamp

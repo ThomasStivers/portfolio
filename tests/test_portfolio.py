@@ -56,6 +56,12 @@ def test_portfolio_add_shares(sample_portfolio):
     assert sample_portfolio.holdings.loc[date, symbol] == old_value + 10
 
 
+def test_portfolio_add_symbol(sample_portfolio):
+    sample_portfolio.add_symbol("NEW", 100, "1/2/2020")
+    assert sample_portfolio.loc["1/2/2020", "NEW"] == 100
+    assert sample_portfolio.data.Close.loc["1/2/2020", "NEW"] > 0
+
+
 def test_portfolio_remove_cash(sample_portfolio):
     date = "1/6/2020"
     symbol = "TEST"
@@ -85,3 +91,6 @@ def test_portfolio_parse_args():
     assert args.sample
     assert args.test
     assert args.verbose
+
+def test_portfolio_value(sample_portfolio):
+    assert all(sample_portfolio.value == sample_portfolio.data.Close * sample_portfolio.holdings)
