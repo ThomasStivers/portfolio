@@ -199,15 +199,13 @@ class Portfolio(object):
     def add_shares(self, symbol: str, quantity: float, date: pd.Timestamp) -> pd.Series:
         """Add shares of an instrument to holdings on given date.
 
-        Args:
-            symbol: A stock ticker symbol.
-            quantity: The number of shares to be added.
-            date: The date on which the shares should be added to the portfolio.
+        :param symbol: A stock ticker symbol.
+        :param quantity: The number of shares to be added.
+        :param date: The date on which the shares should be added to the portfolio.
 
-        Returns:
-            The holdings on the given date with the addition included.
+        :return: The holdings on the given date with the addition included.
 
-        Examples:
+        :Examples:
             >>> output = Portfolio().add_shares('FIPDX', 100, '2020-01-02')
             1655.246
             >>> output['FIPDX'] == 1555.246
@@ -223,7 +221,14 @@ class Portfolio(object):
         return self.holdings.loc[date]
 
     def add_symbol(self, symbol: str, quantity: float, date: pd.Timestamp) -> None:
-        """Add a new symbol to the portfolio."""
+        """Add a new symbol to the portfolio.
+
+        :param symbol: A ticker symbol.
+        :param quantity: Initial quantity of shares of symbol.
+        :param date: The shares must be added on a date.
+
+        :raises KeyError: The symbol is already in the portfolio.
+        """
         if symbol in self.holdings.columns:
             raise KeyError(
                 f"symbol is already inportfolio. Use add_shares or add_cash instead."
@@ -233,7 +238,6 @@ class Portfolio(object):
                 self.data.append(DataReader(symbol, "yahoo", self.data.idxmin()))
             except KeyError:
                 pass
-
 
     def remove_shares(
         self, symbol: str, quantity: float, date: pd.Timestamp
@@ -322,7 +326,7 @@ class Portfolio(object):
         return shares
 
     def export(self, filename: str = "holdings.csv") -> None:
-        """Export the holdings in the portfolio to a csv file.
+        """Export the holdings in the portfolio to a file.
 
         :param filename: A CSV or XLSX file where holdings data should be exported.
             """

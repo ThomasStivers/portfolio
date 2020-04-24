@@ -19,3 +19,11 @@ Development
 
 This project uses `pipenv <https://github.com/pypa/pipenv>`_ to manage dependencies and virtual environments. A requirements.txt is provided for backwards compatibility with pip, however pipenve is preferred.
 
+Documentation
+-------------
+
+Portfolio's documentation is hosted on `ReadTheDocs. <https://readthedocs.org`_
+
+.. image:: https://readthedocs.org/projects/thomasstivers-portfolio/badge/?version=latest
+   :target: https://thomasstivers-portfolio.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation Status

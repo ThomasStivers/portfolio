@@ -19,6 +19,7 @@ bs4 = "*"
 markdown = "*"
 tables = "*"
 tabulate = "*"
+sphinx-rtd-theme = "*"
 
 [requires]
 python_version = "3.8"
