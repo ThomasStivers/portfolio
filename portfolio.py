@@ -160,10 +160,11 @@ class Portfolio(object):
 
         Returns:
             The market closing price of all instruments multiplied by the number of held
-            shares for all dates.
+            shares for all dates. Includes a Totals column with the value of all shares held on a given date.
 
         """
         value = self.data["Close"] * self.holdings.fillna(method="bfill")
+        value["Total"] = value.sum(axis=1)
         return value
 
     def __enter__(self):
@@ -333,7 +334,9 @@ class Portfolio(object):
         if filename.endswith(".csv"):
             self.holdings.drop_duplicates().to_csv(filename)
         elif filename.endswith(".xlsx"):
-            self.holdings.drop_duplicates().to_excel(filename, sheet_name="holdings")
+            with pd.ExcelWriter(filename, datetime_format="mm/dd/yyyy") as writer:
+                self.holdings.drop_duplicates().to_excel(writer, sheet_name="Holdings")
+                self.value.to_excel(writer, sheet_name="Value")
 
     def report(self, args: argparse.Namespace) -> dict:
         """Produce a dictionary of two report strings in text and html.
@@ -348,7 +351,7 @@ class Portfolio(object):
         args.date = self.data.index[self.data.index.get_loc(args.date, method="pad")]
         date_string = pd.Timestamp(args.date).strftime("%B %d, %Y")
         value = self.value.loc[args.date].sum()
-        daily_totals = self.value.sum(axis=1).dropna()
+        daily_totals = self.value["Total"].dropna()
         difference = daily_totals.diff()[args.date]
         if difference < 0:
             difference_string = (
@@ -478,7 +481,7 @@ class Portfolio(object):
             start=days[0].strftime("%m/%d"),
             end=days[-1].strftime("%m/%d"),
         )
-        value = self.value.loc[days[0] : days[-1]].sum(axis=1)
+        value = self.value.loc[days[0] : days[-1]]["Total"]
         difference = value.diff().sum()
         pct_difference = value.pct_change(1).sum() * 100
         if difference < 0:
@@ -552,7 +555,7 @@ class Portfolio(object):
 def make_parser() -> argparse.ArgumentParser:
     """Parse the command line arguments determining what type of report to produce.
 
-    :returns: An `argparse.ArgumentParser` with all arguments added.
+    :return: An `argparse.ArgumentParser` with all arguments added.
     """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -613,6 +616,9 @@ def make_parser() -> argparse.ArgumentParser:
         help="Add shares of a given symbol for a given date.",
     )
     parser.add_argument(
+        "-C", "--create", help="Create a new portfolio.",
+    )
+    parser.add_argument(
         "-F",
         "--file",
         default="holdings.h5",
@@ -634,7 +640,7 @@ def make_parser() -> argparse.ArgumentParser:
     return parser
 
 
-class Interactive(object):
+class _Interactive(object):
     """Make changes to the portfolio interactively."""
 
     def __init__(self, portfolio: Portfolio, args: argparse.Namespace):
@@ -794,7 +800,7 @@ def main() -> None:
     with Portfolio() as portfolio:
         args = make_parser().parse_args()
         if args.interactive:
-            Interactive(portfolio, args)
+            _Interactive(portfolio, args)
         elif args.add:
             args.add[1] = float(args.add[1])
             args.add[2] = pd.Timestamp(args.add[2])
@@ -814,7 +820,7 @@ def main() -> None:
         elif args.list:
             text_message += "\t".join(portfolio.holdings.columns)
         if args.export:
-            portfolio.export()
+            portfolio.export(args.export)
         if args.verbose and "row" in locals():
             print(row)
         portfolio.path = args.file
