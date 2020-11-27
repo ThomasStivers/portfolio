@@ -7,7 +7,15 @@
     font-family: "Arial";
     font-size: 12pt;
     }
-    </style>
+    strong {
+font-weight: "normal";
+text-decoration-line: underline;
+text-decoration-style: double;
+}
+.decrease {
+color: red;
+}
+/style>
 </head>
 <body>
 <h1>{{ title }} for {{ date }}</h1>
@@ -36,5 +44,8 @@ This is the {{ data.rank_change }} best day this year, and the {{ data.rank_valu
 </p></li>
 {% endfor %}
 </ul>
+{%autoescape false %}
+{{ table_html }}
+{%endautoescape %}
 </body>
 </html>

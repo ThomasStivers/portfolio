@@ -2,15 +2,17 @@ from textwrap import fill
 
 import pandas as pd
 
+from cli import make_parser
 from interactive import _Interactive
 from portfolio import Portfolio
-from cli import make_parser
+from report import Report
 
 
 def main() -> None:
     """Use parsed command line options to produce a formatted report."""
     text_message = str()
     with Portfolio() as portfolio:
+        report = Report(portfolio)
         args = make_parser().parse_args()
         if args.interactive:
             _Interactive(portfolio, args)
@@ -42,13 +44,14 @@ def main() -> None:
             print(row)
         portfolio.path = args.file
         if args.verbose:
-            text_message = portfolio.report(args)["text"]
+            # text_message = portfolio.report(args)["text"]
+            text_message = report.text
             text_message = "\n".join(
                 [fill(txt, 120) for txt in text_message.split("\n")]
             )
             print(text_message)
         if args.email:
-            portfolio.email(args)
+            report.email()
 
 
 if __name__ == "__main__":

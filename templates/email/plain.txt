@@ -21,3 +21,5 @@ There is no change on this day.
 {%endif %}
 This is the {{ data.rank_change }} best day this year, and the {{ data.rank_value }} best overall total.
 {% endfor %}
+
+{{ table_text }}

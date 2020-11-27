@@ -24,6 +24,7 @@ import pandas as pd
 import numpy as np
 from pandas_datareader import DataReader
 
+
 # Pandas options
 pd.set_option("display.float_format", "{:,.2f}".format)
 pd.set_option("colheader_justify", "center")
@@ -448,7 +449,7 @@ class Portfolio(object):
             table_data = table_data.loc[:, (table_data != 0).any(axis=0)]
             table_data["Total"] = table_data.sum(axis=1)
             table_data = table_data.T
-            table_headers = table_range.strftime("%m/%d")
+            table_headers = table_range.strftime("%b-%d")
             table_data.columns = table_headers
             table_html = table_data.to_html(
                 float_format="${:,.2f}".format, classes="symbol_table"
@@ -588,11 +589,11 @@ class Portfolio(object):
         message["Subject"] = "Portfolio Report"
         report = self.report(args)
         with open("message.html", "w", encoding="utf-8") as file:
-            file.write(report["html"])
+            file.write(report.html)
         content = MIMEMultipart("alternative")
-        part1 = MIMEText(report["text"], "plain", "utf-8")
+        part1 = MIMEText(report.text, "plain", "utf-8")
         content.attach(part1)
-        part2 = MIMEText(report["html"], "html", "utf-8")
+        part2 = MIMEText(report.html, "html", "utf-8")
         content.attach(part2)
         message.attach(content)
         if args.date.dayofweek == 4:
