@@ -1,0 +1,23 @@
+{{ title }} for {{ date }}
+Total holdings were {{ "${:,.2f}".format(total) }}.
+{% if difference > 0: %}
+This is an increase of {{ "${:,.2f}".format(difference) }} or {{ "{:0.2f}".format(pct_difference) }}% since the previous day.
+{% elif difference < 0: %}
+This is a decrease of {{ "${:,.2f}".format(difference * -1) }} or {{ "{:0.2f}".format(pct_difference * -1) }}% since the previous day.
+{% else: %}
+There is no change on this day.
+{%endif %}
+This is the {{ rank_change }} best day this year, and the {{ rank_value }} best overall total.
+
+Individual holdings Reports for {{ symbols.__len__() }} funds
+{%for symbol, data in symbols.items(): %}
+* Total holdings of {{ symbol }} were {{ "${:,.2f}".format(data.total) }}.
+{% if data.difference > 0: %}
+This is an increase of {{ "${:,.2f}".format(data.difference) }} or {{ "{:0.2f}".format(data.pct_difference) }}% since the previous day.
+{% elif data.difference < 0: %}
+This is a decrease of {{ "${:,.2f}".format(data.difference * -1) }} or {{ "{:0.2f}".format(data.pct_difference * -1) }}% since the previous day.
+{% else: %}
+There is no change on this day.
+{%endif %}
+This is the {{ data.rank_change }} best day this year, and the {{ data.rank_value }} best overall total.
+{% endfor %}

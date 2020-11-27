@@ -2,15 +2,16 @@
 """A tool for managing a stock portfolio."""
 import argparse
 import configparser
+from email import encoders
 from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
-from getpass import getpass
 import os
 from pathlib import Path
 import smtplib
 import sys
-import textwrap
+import tempfile
 
 # Use BeautifulSoup to get plain text version of the report.
 from bs4 import BeautifulSoup
@@ -150,7 +151,7 @@ class Portfolio(object):
             or pd.Timestamp.now() > pd.Timestamp("16:00")
         ):
             self.data = DataReader(
-                self.holdings.columns, "yahoo", pd.Timestamp(today.year - 1, 12, 31)
+                self.holdings.columns, "yahoo", pd.Timestamp(today.year, 1, 1)
             )
         self.holdings = self.holdings.reindex(self.data.index, method="ffill").dropna()
 
@@ -261,6 +262,30 @@ class Portfolio(object):
         self.holdings.loc[date:, symbol] -= quantity
         return self.holdings.loc[date]
 
+    def set_shares(self, symbol: str, quantity: float, date: pd.Timestamp) -> pd.Series:
+        """Set the count of shares of an instrument to holdings on given date.
+
+        :param symbol: A stock ticker symbol.
+        :param quantity: The number of shares to be in holdings on and after date.
+        :param date: The date on which the share count should be set on the portfolio.
+
+        :return: The holdings on the given date set to quantity.
+
+        :Examples:
+            >>> output = Portfolio().set_shares('FIPDX', 100, '2020-01-02')
+            100
+            >>> output['FIPDX'] == 100
+            True
+
+
+        """
+        if symbol not in self.holdings.columns:
+            raise KeyError("symbol must be in holdings.")
+        if quantity <= 0:
+            raise ValueError("quantity must be > 0.")
+        self.holdings.loc[date:, symbol] = quantity
+        return self.holdings.loc[date]
+
     def add_cash(self, symbol: str, quantity: float, date: pd.Timestamp) -> pd.Series:
         """Add shares purchasable for  cash value of symbol to holdings on given date.
 
@@ -330,7 +355,7 @@ class Portfolio(object):
         """Export the holdings in the portfolio to a file.
 
         :param filename: A CSV or XLSX file where holdings data should be exported.
-            """
+        """
         if filename.endswith(".csv"):
             self.holdings.drop_duplicates().to_csv(filename)
         elif filename.endswith(".xlsx"):
@@ -350,7 +375,7 @@ class Portfolio(object):
         charts = {"up": "&#X1F4C8;", "down": "&#X1F4C9;"}
         args.date = self.data.index[self.data.index.get_loc(args.date, method="pad")]
         date_string = pd.Timestamp(args.date).strftime("%B %d, %Y")
-        value = self.value.loc[args.date].sum()
+        value = self.value.loc[args.date, "Total"]
         daily_totals = self.value["Total"].dropna()
         difference = daily_totals.diff()[args.date]
         if difference < 0:
@@ -384,6 +409,8 @@ class Portfolio(object):
         if args.symbol:
             report["text"] += f"## Individual Holdings Reports ##\n"
             for symbol in args.symbol:
+                if self.holdings.loc[args.date, symbol] <= 0:
+                    continue
                 value = self.value.loc[args.date, symbol]
                 difference = self.value[symbol].diff()[args.date]
                 if difference < 0:
@@ -417,6 +444,8 @@ class Portfolio(object):
                 + 6
             ]
             table_data = self.value.loc[table_range, args.symbol]
+            # If we only have 0 values don't show the symbol.
+            table_data = table_data.loc[:, (table_data != 0).any(axis=0)]
             table_data["Total"] = table_data.sum(axis=1)
             table_data = table_data.T
             table_headers = table_range.strftime("%m/%d")
@@ -492,9 +521,11 @@ class Portfolio(object):
             difference_string = (
                 f'an increase of <span class="increase">${difference:,.2f}</span>'
             )
+        alt_text = report.partition("\n")[0][2:-2] + " Chart"
         report += (
             f"Holdings have had {difference_string} or {abs(pct_difference):.2f}% "
-            f"from the previous period.\n"
+            f"from the previous period.\n\n"
+            f"![{alt_text}](cid:portfolio-summary)\n"
             "## Changes in shares held ##\n"
         )
         share_changes = (
@@ -515,6 +546,27 @@ class Portfolio(object):
             report += "".join(changes)
         return report
 
+    def plot(self, period: str = "w") -> str:
+        """Plot the portfolio total and save to an image file."""
+        import matplotlib.pyplot as plt
+        from pandas.plotting import register_matplotlib_converters
+
+        register_matplotlib_converters()
+        fig, ax = plt.subplots(figsize=(8, 6))
+        self.value.Total.resample(period).plot.line(
+            ax=ax,
+            color="blue",
+            title="Portfolio Summary",
+            ylabel="Value",
+            ylim=(self.value.Total.min(), self.value.Total.max()),
+        )
+        plt.grid(True)
+        with tempfile.NamedTemporaryFile(
+            dir=".", prefix="portfolio_", suffix=".png", delete=False
+        ) as file:
+            plt.savefig(file.name, bbox_inches="tight")
+            return file.name
+
     def email(self, args: argparse.Namespace = None) -> bool:
         """Send the portfolio report by email."""
         try:
@@ -527,7 +579,7 @@ class Portfolio(object):
         except KeyError:
             print(f"Email configuration incomplete.")
             return False
-        message = MIMEMultipart("alternative")
+        message = MIMEMultipart()
         message["From"] = sender
         message["Reply-To"] = sender
         message["To"] = ", ".join(recipients)
@@ -537,10 +589,21 @@ class Portfolio(object):
         report = self.report(args)
         with open("message.html", "w", encoding="utf-8") as file:
             file.write(report["html"])
+        content = MIMEMultipart("alternative")
         part1 = MIMEText(report["text"], "plain", "utf-8")
-        part2 = MIMEText(report["html"], "html")
-        message.attach(part1)
-        message.attach(part2)
+        content.attach(part1)
+        part2 = MIMEText(report["html"], "html", "utf-8")
+        content.attach(part2)
+        message.attach(content)
+        if args.date.dayofweek == 4:
+            with open(self.plot(), "rb") as chart_file:
+                chart1 = MIMEImage(chart_file.read())
+                chart1.add_header(
+                    "Content-Disposition", "attachment", filename="portfolio.png"
+                )
+                chart1.add_header("X-Attachment_Id", "0")
+                chart1.add_header("Content-Id", "portfolio-summary")
+                message.attach(chart1)
         if args.test:
             print(message.as_string())
             return False
@@ -550,292 +613,3 @@ class Portfolio(object):
             smtp.login(user, password)
             smtp.send_message(message)
             return True
-
-
-def make_parser() -> argparse.ArgumentParser:
-    """Parse the command line arguments determining what type of report to produce.
-
-    :return: An `argparse.ArgumentParser` with all arguments added.
-    """
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "-a",
-        "--all",
-        dest="symbol",
-        action="store_const",
-        const="all",
-        help="View a report for all holdings.",
-    )
-    parser.add_argument(
-        "-c",
-        "--cash",
-        action="store_true",
-        help="If specified the quantity for the  --add or --remove options will be specified as cash otherwise defaults to shares.",
-    )
-    parser.add_argument(
-        "-d", "--date", default=pd.Timestamp.now(), help="The date to look up."
-    )
-    parser.add_argument(
-        "-e", "--email", action="store_true", help="Email the portfolio report."
-    )
-    parser.add_argument(
-        "-i",
-        "--interactive",
-        action="store_true",
-        help="Interactively make changes to the portfolio.",
-    )
-    parser.add_argument(
-        "-l",
-        "--list",
-        action="store_true",
-        help="Displays a list of the symbols available in the portfolio.",
-    )
-    parser.add_argument(
-        "-s", "--symbol", nargs="+", help="The stock ticker symbol(s) to look up."
-    )
-    parser.add_argument(
-        "-t",
-        "--test",
-        action="store_true",
-        help="Used to test emails without sending.",
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Provide more detailed information.",
-    )
-    parser.add_argument(
-        "-x", "--export", help="Export holdings to a csv or xlsx file.",
-    )
-    parser.add_argument(
-        "-A",
-        "--add",
-        nargs=3,
-        metavar=("SYMBOL", "SHARES", "DATE"),
-        help="Add shares of a given symbol for a given date.",
-    )
-    parser.add_argument(
-        "-C", "--create", help="Create a new portfolio.",
-    )
-    parser.add_argument(
-        "-F",
-        "--file",
-        default="holdings.h5",
-        help=(
-            "Name of the file where holdings and market data are stored. "
-            "The default is %(default)s."
-        ),
-    )
-    parser.add_argument(
-        "-R",
-        "--remove",
-        nargs=3,
-        metavar=("SYMBOL", "SHARES", "DATE"),
-        help="Remove shares of a given symbol for a given date.",
-    )
-    parser.add_argument(
-        "--sample", action="store_true", help="Only use sample data in the portfolio.",
-    )
-    return parser
-
-
-class _Interactive(object):
-    """Make changes to the portfolio interactively."""
-
-    def __init__(self, portfolio: Portfolio, args: argparse.Namespace):
-        self.portfolio = portfolio
-        self.menu_actions = dict()
-        self.menu = dict(
-            enumerate(
-                [
-                    "Increase held shares of an existing symbol.",
-                    "Decrease held shares of an existing symbol.",
-                    "Set the share count for an existing symbol.",
-                    "Add a new symbol to the portfolio.",
-                    "Create a new portfolio.",
-                    "Report on portfolio performance.",
-                    "Configure email setup.",
-                    "Email portfolio report.",
-                    "Export the portfolio to a file.",
-                    "Quit",
-                ],
-                start=1,
-            )
-        )
-        self.assign_actions()
-        self.show_menu()
-
-    def show_menu(self) -> None:
-        """Display the menu."""
-        menu_string = "\n".join(
-            [".\t".join([str(choice), item]) for choice, item in self.menu.items()]
-        )
-        choice = int(input(menu_string + "\n Choice or q to quit> "))
-        self.menu_actions[choice]()
-
-    def assign_actions(self) -> dict:
-        """Assign methods to actions."""
-        menu = self.menu
-        for id, action in menu.items():
-            name = action.lower().split(" ")[0]
-            method = getattr(self, name)
-            self.menu_actions[id] = method
-        return self.menu_actions
-
-    def add(self) -> None:
-        """Add a new symbol to the portfolio."""
-        symbol = input("Symbol to add: ")
-        date = pd.Timestamp(input(f"Date on which to add {symbol}: "))
-        quantity = float(input("Shares to add (preceed with $ for cash value): "))
-        if quantity.startswith("$"):
-            cash = float(quantity[1:])
-            self.portfolio.add_symbol(
-                symbol, self.portfolio.to_shares(symbol, cash, date), date
-            )
-        else:
-            shares = float(quantity)
-            self.portfolio.add_symbol(symbol, shares, date)
-            self.show_menu()
-
-    def configure(self) -> None:
-        """Configure email settings."""
-        config = self.portfolio.config
-        email = config["email"]
-        email["smtp_server"] = input(f"SMTP Server ({email['smtp_server']}): ")
-        email["smtp_port"] = input(f"SMTP port ({email['smtp_port']}): ")
-        email["smtp_user"] = input(f"SMTP User Name ({email['smtp_user']}): ")
-        email["smtp_password"] = getpass(
-            prompt=f"SMTP Password ({len(email['smtp_password'])* '*'}): "
-        )
-        email["sender"] = input("From: ")
-        recipients = [""]
-        while True:
-            recipient = input("To: ")
-            if recipient == "":
-                break
-            recipients.append(recipient)
-        if len(recipients) > 2:
-            email["recipients"] = "\n".join(recipients)
-        elif len(recipients) == 1:
-            raise ValueError("At least one recipient is required.")
-        else:
-            email["recipients"] = recipients[1]
-        config["email"] = email
-        with open(os.path.join(str(Path.home()), self.config_name)) as config_file:
-            config.write(config_file)
-        self.show_menu()
-
-    def create(self):
-        """Create a new portfolio."""
-        filename = input("File name to create: ")
-        path = Path(filename)
-        if not path.exists():
-            self.portfolio = Portfolio(path=path)
-            self.add()
-
-    def decrease(self) -> None:
-        """Remove shares of a symbol from the portfolio on a given date."""
-        symbol = input("Symbol to remove: ")
-        date = pd.Timestamp(input(f"Date on which to remove {symbol}: "))
-        quantity = input("Shares to remove (preceed with $ for cash value): ")
-        if quantity.startswith("$"):
-            cash = float(quantity[1:])
-            self.portfolio.remove_cash(symbol, cash, date)
-        else:
-            shares = float(quantity)
-            self.portfolio.remove_shares(symbol, shares, date)
-            self.show_menu()
-
-    def email(self) -> None:
-        """Email the html formatted portfolio report to designated recipients."""
-        date = pd.Timestamp(input("Date of report: "))
-        args = argparse.Namespace(
-            date=date, symbol=list(self.portfolio.holdings.columns), email=True,
-        )
-        self.portfolio.email(args)
-        print("Portfolio emailed.")
-        self.show_menu()
-
-    def export(self) -> None:
-        """Export the holdings in the portfolio to a csv or xlsx file."""
-        filename = input("Name of file to export: ")
-        self.portfolio.export(filename)
-        print(f"Portfolio exported to {filename}.")
-        self.show_menu()
-
-    def increase(self):
-        """Add shares of a symbol to the portfolio on a given date."""
-        symbol = input("Symbol to add: ")
-        date = pd.Timestamp(input(f"Date on which to add {symbol}: "))
-        quantity = float(input("Shares to add (preceed with $ for cash value): "))
-        if quantity.startswith("$"):
-            cash = float(quantity[1:])
-            self.portfolio.add_cash(symbol, cash, date)
-        else:
-            shares = float(quantity)
-            self.portfolio.add_shares(symbol, shares, date)
-            self.show_menu()
-
-    def quit(self) -> None:
-        """Quits the interactive session."""
-        exit()
-
-    def report(self) -> None:
-        """Generate portfolio report interactively."""
-        date = pd.Timestamp(input("Date of report: "))
-        args = argparse.Namespace(
-            date=date, symbol=list(self.portfolio.holdings.columns), verbose=True
-        )
-        print(self.portfolio.report(args)["text"])
-        self.show_menu()
-
-    def set(self) -> None:
-        self.show_menu()
-
-
-def main() -> None:
-    """Use parsed command line options to produce a formatted report."""
-    text_message = str()
-    with Portfolio() as portfolio:
-        args = make_parser().parse_args()
-        if args.interactive:
-            _Interactive(portfolio, args)
-        elif args.add:
-            args.add[1] = float(args.add[1])
-            args.add[2] = pd.Timestamp(args.add[2])
-            if args.cash:
-                row = portfolio.add_cash(*args.add)
-            else:
-                row = portfolio.add_shares(*args.add)
-        elif args.remove:
-            args.remove[1] = float(args.remove[1])
-            args.remove[2] = pd.Timestamp(args.remove[2])
-            if args.cash:
-                row = portfolio.remove_cash(*args.remove)
-            else:
-                row = portfolio.remove_shares(*args.remove)
-        elif args.date:
-            args.date = pd.Timestamp(args.date)
-        elif args.list:
-            text_message += "\t".join(portfolio.holdings.columns)
-        if args.export:
-            portfolio.export(args.export)
-        if args.verbose and "row" in locals():
-            print(row)
-        portfolio.path = args.file
-        if args.verbose:
-            text_message = portfolio.report(args)["text"]
-            text_message = "\n".join(
-                [textwrap.fill(txt, 120) for txt in text_message.split("\n")]
-            )
-            print(text_message)
-        if args.email:
-            portfolio.email(args)
-
-
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("Cancelled")

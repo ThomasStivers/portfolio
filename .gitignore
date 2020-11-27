@@ -1,7 +1,10 @@
 *.csv 
 *.h5 
-*.xlsx
+*.jpg
+*.png
 *.spec 
+*.svg
+*.xlsx
 __pycache__/
 build/
 dist/

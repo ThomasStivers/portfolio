@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Portfolio Report</title>
+    <style>
+    body {
+    font-family: "Arial";
+    font-size: 12pt;
+    }
+    </style>
+</head>
+<body>
+<h1>{{ title }} for {{ date }}</h1>
+<p>Total holdings were <strong>{{ "${:,.2f}".format(total) }}</strong>.
+{% if difference > 0: %}
+This is an increase of <span class="increase">{{ "${:,.2f}".format(difference) }}</span> or {{ "{:0.2f}".format(pct_difference) }}% since the previous day.
+{% elif difference < 0: %}
+This is a decrease of <span class="decrease">{{ "${:,.2f}".format(difference * -1) }}</span> or {{ "{:0.2f}".format(pct_difference * -1) }}% since the previous day.
+{% else: %}
+There is no change on this day.
+{%endif %}
+This is the {{ rank_change }} best day this year, and the {{ rank_value }} best overall total.
+</p>
+<h2>Individual holdings Reports</h2>
+<ul
+{%for symbol, data in symbols.items(): %}
+<li><p>Total holdings of {{ symbol }} were {{ "${:,.2f}".format(data.total) }}.
+{% if data.difference > 0: %}
+This is an increase of <span class="increase">{{ "${:,.2f}".format(data.difference) }}</span> or {{ "{:0.2f}".format(data.pct_difference) }}% since the previous day.
+{% elif data.difference < 0: %}
+This is a decrease of <span class="decrease">{{ "${:,.2f}".format(data.difference * -1) }}</span> or {{ "{:0.2f}".format(data.pct_difference * -1) }}% since the previous day.
+{% else: %}
+There is no change on this day.
+{%endif %}
+This is the {{ data.rank_change }} best day this year, and the {{ data.rank_value }} best overall total.
+</p></li>
+{% endfor %}
+</ul>
+</body>
+</html>
