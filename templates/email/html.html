@@ -47,5 +47,8 @@ This is the {{ data.rank_change }} best day this year, and the {{ data.rank_valu
 {%autoescape false %}
 {{ table_html }}
 {%endautoescape %}
+{% if chart_file: %}
+<img src="cid:portfolio-summary" alt="Portfolio Summary by Week"/>
+{% endif %}
 </body>
 </html>

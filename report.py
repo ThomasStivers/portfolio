@@ -46,6 +46,8 @@ class Report(object):
             self.data["symbols"][symbol] = {}
             self.data["symbols"][symbol].update(self.get_individual_report(symbol))
         self.data.update(self.get_report_table())
+        if self.date.dayofweek == 4:
+            self.data["chart_file"] = self.pf.plot()
 
     def get_overall_report(self) -> dict:
         date = self.date
@@ -123,20 +125,19 @@ class Report(object):
         with open("message.html", "w", encoding="utf-8") as file:
             file.write(self.html)
         content = MIMEMultipart("alternative")
-        part1 = MIMEText(self.text, "plain", "utf-8")
+        part1 = MIMEText(self.text, "plain", "us-ascii")
         content.attach(part1)
-        part2 = MIMEText(self.html, "html", "utf-8")
+        part2 = MIMEText(self.html, "html", "us-ascii")
         content.attach(part2)
         message.attach(content)
         if date.dayofweek == 4:
-            with open(pf.plot(), "rb") as chart_file:
-                chart1 = MIMEImage(chart_file.read())
-                chart1.add_header(
-                    "Content-Disposition", "attachment", filename="portfolio.png"
-                )
-                chart1.add_header("X-Attachment_Id", "0")
-                chart1.add_header("Content-Id", "portfolio-summary")
-                message.attach(chart1)
+            chart1 = MIMEImage(open(self.data["chart_file"], "rb").read())
+            chart1.add_header(
+                "Content-Disposition", "attachment", filename="portfolio.png"
+            )
+            chart1.add_header("X-Attachment_Id", "0")
+            chart1.add_header("Content-Id", "portfolio-summary")
+            message.attach(chart1)
         if test:
             print(message.as_string())
             return False
@@ -160,4 +161,4 @@ if __name__ == "__main__":
     report = Report(Portfolio())
     # print(report.html)
     # print(report.text)
-    print(report.email(test=True))
+    report.email(test=True)

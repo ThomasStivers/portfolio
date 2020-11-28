@@ -10,15 +10,15 @@ Installation
 
 $ git clone https://github.com/ThomasStivers/portfolio.git
 $ cd portfolio
-$ pip install pipenv
-$ pipenv install
-$ python portfolio.py --create my_portfolio.h5
+$ pip install poetry
+$ poetry install
+$ python app.py --create my_portfolio.h5
 
 
 Development
 -----------
 
-This project uses `pipenv <https://github.com/pypa/pipenv>`_ to manage dependencies and virtual environments. A requirements.txt is provided for backwards compatibility with pip, however pipenve is preferred.
+This project uses `poetry <https://python-poetry.org>`_ to manage dependencies and virtual environments. A requirements.txt is provided for backwards compatibility with pip, however poetry is preferred.
 
 Documentation
 -------------
