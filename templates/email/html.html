@@ -27,7 +27,7 @@ This is a decrease of <span class="decrease">{{ "${:,.2f}".format(difference * -
 {% else: %}
 There is no change on this day.
 {%endif %}
-This is the {{ rank_change }} best day this year, and the {{ rank_value }} best overall total.
+This is the {{ rank_change_html|safe }} best day this year, and the {{ rank_value_html|safe }} best overall total.
 </p>
 <h2>Individual holdings Reports</h2>
 <ul
@@ -40,7 +40,7 @@ This is a decrease of <span class="decrease">{{ "${:,.2f}".format(data.differenc
 {% else: %}
 There is no change on this day.
 {%endif %}
-This is the {{ data.rank_change }} best day this year, and the {{ data.rank_value }} best overall total.
+This is the {{ data.rank_change_html|safe }} best day this year, and the {{ data.rank_value_html|safe }} best overall total.
 </p></li>
 {% endfor %}
 </ul>

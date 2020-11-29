@@ -12,10 +12,16 @@ from portfolio import Portfolio
 
 
 def ordinal(n):
+    """Produces ordinal numbers (1st, 2nd, 3rd)."""
     return "%d%s" % (
         n,
         "tsnrhtdd"[(n // 10 % 10 != 1) * (n % 10 < 4) * n % 10 :: 4],
     )
+
+
+def superscript(ord: str) -> str:
+    """Converts the suffix of ordinal numbers to superscript in html."""
+    return ord.replace(ord[-2:], f"<sup>{ord[-2:]}</sup>")
 
 
 class Report(object):
@@ -23,6 +29,7 @@ class Report(object):
     title = "Portfolio Report"
 
     def __init__(self, pf: Portfolio, date: datetime = datetime.today()):
+        """Constructs a report for the given Portfolio object."""
         if date not in pf.data.index:
             self.date = pf.data.index[
                 pf.data.index.get_loc(pd.Timestamp(date), method="nearest")
@@ -50,6 +57,7 @@ class Report(object):
             self.data["chart_file"] = self.pf.plot()
 
     def get_overall_report(self) -> dict:
+        """Creates a report including data about the portfolio as a whole."""
         date = self.date
         pf = self.pf
         data = {
@@ -61,9 +69,12 @@ class Report(object):
             ),
             "rank_value": ordinal(int(pf.value["Total"].rank(ascending=False)[date])),
         }
+        data["rank_change_html"] = superscript(data["rank_change"])
+        data["rank_value_html"] = superscript(data["rank_value"])
         return data
 
     def get_individual_report(self, symbol: str) -> dict:
+        """Generates a dictionary containing data about a single symbol."""
         date = self.date
         pf = self.pf
         if pf.value.loc[date, symbol] == 0:
@@ -78,9 +89,12 @@ class Report(object):
             ),
             "rank_value": ordinal(int(pf.value[symbol].rank(ascending=False)[date])),
         }
+        data["rank_change_html"] = superscript(data["rank_change"])
+        data["rank_value_html"] = superscript(data["rank_value"])
         return data
 
     def get_report_table(self) -> dict:
+        """Makes a table of the values of symbols and their total for a range of dates."""
         data = {}
         date = self.date
         symbols = self.data["symbols"].keys()
@@ -159,6 +173,6 @@ class Report(object):
 
 if __name__ == "__main__":
     report = Report(Portfolio())
-    # print(report.html)
+    print(report.html)
     # print(report.text)
-    report.email(test=True)
+    # report.email(test=True)
