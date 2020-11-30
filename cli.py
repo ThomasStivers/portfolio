@@ -42,6 +42,13 @@ def make_parser() -> argparse.ArgumentParser:
         help="Displays a list of the symbols available in the portfolio.",
     )
     parser.add_argument(
+        "-o",
+        "--output",
+        dest="output_file",
+        type=argparse.FileType("w"),
+        help="Write the report to a .html or .txt file. The format written depends on the file extension given.",
+    )
+    parser.add_argument(
         "-s", "--symbol", nargs="+", help="The stock ticker symbol(s) to look up."
     )
     parser.add_argument(
@@ -59,7 +66,8 @@ def make_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "-x",
         "--export",
-        help="Export holdings to a csv or xlsx file.",
+        dest="export_file",
+        help="Export holdings to a csv or xlsx file. The format of the output depends on the file extension",
     )
     parser.add_argument(
         "-A",

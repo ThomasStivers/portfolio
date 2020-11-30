@@ -1,4 +1,4 @@
-from textwrap import fill
+from os.path import splitext
 
 import pandas as pd
 
@@ -38,20 +38,21 @@ def main() -> None:
             args.date = pd.Timestamp(args.date)
         elif args.list:
             text_message += "\t".join(portfolio.holdings.columns)
-        if args.export:
-            portfolio.export(args.export)
+        if args.export_file:
+            portfolio.export(args.export_file)
         if args.verbose and "row" in locals():
             print(row)
         portfolio.path = args.file
         if args.verbose:
-            # text_message = portfolio.report(args)["text"]
-            text_message = report.text
-            text_message = "\n".join(
-                [fill(txt, 120) for txt in text_message.split("\n")]
-            )
-            print(text_message)
+            print(report.text)
+        if args.output_file:
+            if splitext(args.output_file.name)[1] == ".txt":
+                args.output_file.write(report.text)
+            if splitext(args.output_file.name)[1] == ".html":
+                args.output_file.write(report.html)
+            args.output_file.close()
         if args.email:
-            report.email()
+            report.email(args.test)
 
 
 if __name__ == "__main__":
