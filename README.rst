@@ -23,7 +23,7 @@ This project uses `poetry <https://python-poetry.org>`_ to manage dependencies a
 Documentation
 -------------
 
-Portfolio's documentation is hosted on `ReadTheDocs. <https://readthedocs.org`_
+Portfolio's documentation is hosted on `ReadTheDocs. <https://readthedocs.org>`_
 
 .. image:: https://readthedocs.org/projects/thomasstivers-portfolio/badge/?version=latest
    :target: https://thomasstivers-portfolio.readthedocs.io/en/latest/?badge=latest
