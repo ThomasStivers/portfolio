@@ -169,10 +169,3 @@ class Report(object):
     @property
     def text(self):
         return self.text_template.render(**self.data)
-
-
-if __name__ == "__main__":
-    report = Report(Portfolio())
-    print(report.html)
-    # print(report.text)
-    # report.email(test=True)
