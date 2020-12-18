@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 import pandas as pd
-from portfolio import Portfolio
+from .portfolio import Portfolio
 
 
 class _Interactive(object):

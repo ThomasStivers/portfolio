@@ -8,10 +8,10 @@ import smtplib
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 import pandas as pd
-from portfolio import Portfolio
+from .portfolio import Portfolio
 
 
-def ordinal(n):
+def ordinal(n: int) -> str:
     """Produces ordinal numbers (1st, 2nd, 3rd)."""
     return "%d%s" % (
         n,
@@ -28,9 +28,12 @@ class Report(object):
 
     title = "Portfolio Report"
 
-    def __init__(self, pf: Portfolio, date: datetime = datetime.today()):
+    def __init__(self, pf: Portfolio, config, date: datetime = datetime.today()):
         """Constructs a report for the given Portfolio object."""
+        if type(pf) != Portfolio:
+            raise (ValueError("First argument must be of type portfolio.Portfolio"))
         if date not in pf.data.index:
+            self.config = config
             self.date = pf.data.index[
                 pf.data.index.get_loc(pd.Timestamp(date), method="nearest")
             ]
@@ -55,6 +58,12 @@ class Report(object):
         self.data.update(self.get_report_table())
         if self.date.dayofweek == 4:
             self.data["chart_file"] = self.pf.plot()
+
+    def __str__(self):
+        return self.text
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(portfolio={self.pf!r}, date={self.date!r})"
 
     def get_overall_report(self) -> dict:
         """Creates a report including data about the portfolio as a whole."""
@@ -118,16 +127,15 @@ class Report(object):
     def email(self, test: bool = False) -> bool:
         """Send the portfolio report by email."""
         date = self.date
-        pf = self.pf
         try:
-            server = pf.config["email"]["smtp_server"]
-            port = pf.config["email"]["smtp_port"]
-            user = pf.config["email"]["smtp_user"]
-            password = pf.config["email"]["smtp_password"]
-            sender = pf.config["email"]["sender"]
-            recipients = pf.config["email"]["recipients"].splitlines()[1:]
+            server = self.config["email"]["smtp_server"]
+            port = self.config["email"]["smtp_port"]
+            user = self.config["email"]["smtp_user"]
+            password = self.config["email"]["smtp_password"]
+            sender = self.config["email"]["sender"]
+            recipients = self.config["email"]["recipients"].splitlines()[1:]
         except KeyError:
-            print(f"Email configuration incomplete.")
+            print("Email configuration incomplete.")
             return False
         message = MIMEMultipart()
         message["From"] = sender
