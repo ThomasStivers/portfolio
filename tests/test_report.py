@@ -2,18 +2,7 @@ import math
 
 import pytest
 
-from context import portfolio, report
-
-
-@pytest.fixture(scope="module")
-def sample_report():
-    pf = portfolio.Portfolio(None, portfolio.test_data(), portfolio.test_holdings())
-    return report.Report(pf)
-
-
-def test_report_constructor():
-    with pytest.raises(ValueError):
-        report.Report(None)
+from tests.context import portfolio, report
 
 
 def test_report_get_overall_report(sample_report):
@@ -28,9 +17,15 @@ def test_report_get_individual_report(sample_report):
     assert keys <= data.keys()
 
 
-def test_report_get_table_report(sample_report):
-    data = sample_report.get_table_report()
-    assert data
+def test_report_get_periodic_report(sample_report):
+    data = sample_report.get_periodic_report("7d")
+    assert "period" in data
+
+
+def test_report_get_report_table(sample_report):
+    data = sample_report.get_report_table()
+    assert "table_text" in data
+    assert "table_html" in data
 
 
 def test_report_email(sample_report, capsys):
@@ -39,6 +34,7 @@ def test_report_email(sample_report, capsys):
     sample_report.email(test=True)
     captured = capsys.readouterr()
     message = message_from_string(captured.out)
+    print(message.as_string())
     assert message.is_multipart()
     for part in message.walk():
         if part.get_content_type() == "text/html":

@@ -1,12 +1,14 @@
 *.csv 
 *.h5 
 *.jpg
+*.log
 *.png
 *.spec 
 *.svg
 *.xlsx
 __pycache__/
 build/
+data/
 dist/
 message.html 
 docs/_build/

@@ -29,6 +29,23 @@ There is no change on this day.
 {%endif %}
 This is the {{ rank_change_html|safe }} best day this year, and the {{ rank_value_html|safe }} best overall total.
 </p>
+{% if periodic: %}
+<h2>{{ periodic.period }} report from {{ periodic.start }} through {{ periodic.end }}</h2>
+{% if periodic.difference < 0: %}
+<p>Holdings have had a decrease of {{ "${:,.2f}".format(periodic.difference * -1) }} or {{ "{:,.2f}".format(periodic.pct_difference * -1) }}%.</p>
+{% elif periodic.difference >= 0: %}
+<p>Holdings have had an increase of {{ "${:,.2f}".format(periodic.difference) }} or {{ "{:,.2f}".format(periodic.pct_difference) }}%.</p>
+{% endif %}
+%{ if periodic.changes: %}
+<h3>Changes in shares held during the period:</h3>
+<ul>
+{% for day in periodic.changes: %}
+{% for symbol in periodic["changes"][day]: %}
+<li>On {{ day.strftime("%m/%d") }} {{ "{:,.3f}".format(periodic["changes"][day][symbol]) }} shares of {{ symbol }} wer purchased.</li>
+{% endfor %}
+{% endfor %}
+</ul>
+{% endif %}
 <h2>Individual holdings Reports</h2>
 <ul
 {%for symbol, data in symbols.items(): %}

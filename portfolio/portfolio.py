@@ -1,15 +1,18 @@
 #!/usr/bin/python3
 """A tool for managing a stock portfolio."""
 import argparse
+from functools import cached_property
 import os
 from pathlib import Path
 import sys
-import tempfile
+from typing import List, Optional, Union
 
 # Imports for pandas and related modules
 import pandas as pd
 import numpy as np
 from pandas_datareader import DataReader
+
+from .log import logger
 
 
 # Pandas options
@@ -17,61 +20,59 @@ pd.set_option("display.float_format", "{:,.2f}".format)
 pd.set_option("colheader_justify", "center")
 
 
-class Portfolio(object):
+class Portfolio:
     """Provides information about a portfolio of financial instruments."""
 
     def __init__(
         self,
-        path: str = "holdings.h5",
+        path: str = "data",
         data: pd.DataFrame = None,
         holdings: pd.DataFrame = None,
     ):
         """Initialize the portfolio with holdings and market data.
 
         Args:
-            path: The name of an hdf file containing holdings and market data. If this
+            path: The name of an a directory containing holdings and market data. If this
                 is None then the portfolio must be described by the data and holdings arguments.
-            data: A DataFrame with multiple indices containing market data for a set of
+            data: A DataFrame  containing market close data for a set of
                 financial instruments over a period of time.
-                The level 0 index is Adj Close, Close, High, Low, Open, and Volume.
-                The level 1 index has one item for each ticker symbol being tracked.
             holdings:   A DataFrame containing the number of shares held of the set of
                 symbols in data over a time period corresponding to that of data.
-
-        Examples:
-            >>> pf = Portfolio(
-            ...     path=None,
-            ...     data=test_data(),
-            ...     holdings=test_holdings(),
-            ... )
-            >>> pf.data.shape
-            (5, 12)
-            >>> pf.holdings.shape
-            (5, 2)
-
         """
         today = pd.Timestamp.floor(pd.Timestamp.today(), "D")
         yesterday = today - pd.Timedelta("1D")
         if type(data) == pd.DataFrame and type(holdings) == pd.DataFrame:
+            logger.debug("Data and holdings arguments are set.")
             self.data = data
             self.holdings = holdings
-        if path:
-            self.path = Path(path)
-            if not self.path.is_file():
-                self.path.touch()
-        if hasattr(self, "path") and self.path.is_file():
-            with pd.HDFStore(self.path, "r") as store:
-                self.holdings = store["/holdings"]
-                try:
-                    self.data = store["/data"]
-                except (KeyError):
-                    self.data = DataReader(
-                        self.holdings.columns,
-                        "yahoo",
-                        pd.Timestamp(today.year - 1, 12, 31),
-                    )
         else:
-            self.path = None
+            logger.debug("Data and holdings are not set.")
+        if "path" in locals() and Path(path).is_dir():
+            logger.debug("Path %s is a directory.", path)
+            self.path = Path(path)
+            if not self.path.is_dir():
+                logger.info("%s is not a directory, creating it...", self.path)
+                self.path.mkdir()
+        if hasattr(self, "path") and self.path.is_dir():
+            try:
+                # The feather format does not support date indices,
+                # so set the Date colemn to be the index.
+                self.holdings = pd.read_feather(
+                    self.path / "holdings.feather"
+                ).set_index("Date")
+            except FileNotFoundError:
+                logger.info("No stored holdings found.")
+                self.holdings = holdings
+            symbols = self.holdings.columns
+            try:
+                # The feather format does not support date indices,
+                # so set the Date colemn to be the index.
+                self.data = pd.read_feather("data/prices.feather").set_index("Date")
+            except FileNotFoundError:
+                logger.info("Market data is not stored or is out of date.")
+                self.data = Portfolio.get_market_data(symbols)
+        else:
+            raise (RuntimeError("A path for data storage must be defined."))
         # if we don't have given data, and it is a day we don't have data for, and it is
         # after market close.
         if (
@@ -80,21 +81,20 @@ class Portfolio(object):
             and yesterday.dayofweek in range(0, 5)
             or pd.Timestamp.now() > pd.Timestamp("16:00")
         ):
-            self.data = DataReader(
-                self.holdings.columns, "yahoo", pd.Timestamp(today.year, 1, 1)
+            self.data = Portfolio.get_market_data(
+                symbols,
             )
         self.holdings = self.holdings.reindex(self.data.index, method="ffill").dropna()
 
-    @property
+    @cached_property
     def value(self) -> pd.DataFrame:
         """The value of the held shares at closing on each date.
 
         Returns:
             The market closing price of all instruments multiplied by the number of held
             shares for all dates. Includes a Totals column with the value of all shares held on a given date.
-
         """
-        value = self.data["Close"] * self.holdings.fillna(method="bfill")
+        value = self.data * self.holdings.fillna(method="bfill")
         value["Total"] = value.sum(axis=1)
         return value
 
@@ -102,16 +102,15 @@ class Portfolio(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        """Stores market and holdings data to an HDF file.
+        """Stores market and holdings data to an feather file."""
+        data_filename = str(self.path / "prices.feather")
+        holdings_filename = str(self.path / "holdings.feather")
+        logger.debug("Writing market data to %s...", data_filename)
+        self.data.reset_index().to_feather(data_filename)
+        logger.debug("Writing holdings to %s...", holdings_filename)
+        self.holdings.reset_index().to_feather(str(self.path / "holdings.feather"))
 
-        Examples:
-            >>> with Portfolio() as pf: pass
-
-        """
-        self.holdings.to_hdf(self.path, key="/holdings")
-        self.data.to_hdf(self.path, key="/data")
-
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}("
             f"path={self.path!r}, data={self.data!r}, holdings={self.holdings!r})"
@@ -121,17 +120,11 @@ class Portfolio(object):
         """Briefly describe the holdings in the portfolio in a string.
 
         Returns:
-            A string briefly summarizing the contents of the portfolio.
-
-            Examples:
-                >>> print(Portfolio(data=test_data(), holdings=test_holdings())) # doctest: +ELLIPSIS
-                Portfolio holding ... instruments for ... dates worth $...
-
-        """
+            A string briefly summarizing the contents of the portfolio."""
         return (
             f"Portfolio holding {self.holdings.shape[1]} instruments "
             f"for {self.holdings.shape[0]} dates "
-            f"worth ${self.value.iloc[-1].sum():,.2f}."
+            f"worth ${self.value.Total.iloc[-1]:,.2f}."
         )
 
     def add_shares(self, symbol: str, quantity: float, date: pd.Timestamp) -> pd.Series:
@@ -173,12 +166,7 @@ class Portfolio(object):
             )
         self.holdings.loc[date:, symbol] = quantity
         try:
-            self.data = DataReader(
-                self.holdings.columns,
-                "yahoo",
-                self.holdings.idxmin().min(),
-                self.holdings.idxmax().max(),
-            )
+            self.data[symbol] = Portfolio.get_market_data(symbol)
         except KeyError:
             pass
 
@@ -268,12 +256,11 @@ class Portfolio(object):
 
         :returns: The value of the shares of symbol in dollars on the specified date.
         """
-        prices = self.data[("Close", symbol)]
+        prices = self.data[symbol]
         date_index = prices.index.get_loc(date, method="ffill")
         date = prices.index[date_index]
         price = prices[date]
         cash = shares * price
-        print(f"${cash:,.2f} = {shares:,.3f} shares of {symbol}")
         return cash
 
     def to_shares(self, symbol: str, cash: float, date: pd.Timestamp) -> float:
@@ -285,89 +272,32 @@ class Portfolio(object):
 
         :returns: The count of  shares of symbol purchasable for cash on the specified date.
         """
-        last_close = self.data["Close"].iloc[
-            self.data["Close"].index.get_loc(date, method="ffill")
-        ][symbol]
+        last_close = self.data.iloc[self.data.index.get_loc(date, method="ffill")][
+            symbol
+        ]
         shares = cash / last_close
-        print(f"${cash:,.2f} = {shares:,.3f} shares of {symbol}")
         return shares
 
-    def export(self, filename: str = "holdings.csv") -> None:
+    def export(self, filename: Union[os.PathLike, str] = "holdings.csv") -> bool:
         """Export the holdings in the portfolio to a file.
 
         :param filename: A CSV or XLSX file where holdings data should be exported.
         """
+        logger.debug("Exporting data to %s...", filename)
         if filename.endswith(".csv"):
             self.holdings.drop_duplicates().to_csv(filename)
+            return True
         elif filename.endswith(".xlsx"):
             with pd.ExcelWriter(filename, datetime_format="mm/dd/yyyy") as writer:
+                self.data.to_excel(writer, sheet_name="Prices")
                 self.holdings.drop_duplicates().to_excel(writer, sheet_name="Holdings")
                 self.value.to_excel(writer, sheet_name="Value")
+                return True
+            return False
 
-    def periodic_report(
-        self, args: argparse.Namespace, period: pd.offsets.DateOffset = "7d"
-    ) -> str:
-        """Produce a text string for a given period to be included in the larger portfolio report."""
-        report = "# {period} Report for {start} through {end} #\n"
-        days = pd.date_range(args.date - pd.Timedelta(period), args.date)
-        report = report.format(
-            period=("Weekly" if period == "7d" else "Monthly"),
-            start=days[0].strftime("%m/%d"),
-            end=days[-1].strftime("%m/%d"),
-        )
-        value = self.value.loc[days[0] : days[-1]]["Total"]
-        difference = value.diff().sum()
-        pct_difference = value.pct_change(1).sum() * 100
-        if difference < 0:
-            difference_string = (
-                f'a decrease of <span class="decrease">(${abs(difference):,.2f})</span>'
-            )
-        else:
-            difference_string = (
-                f'an increase of <span class="increase">${difference:,.2f}</span>'
-            )
-        alt_text = report.partition("\n")[0][2:-2] + " Chart"
-        report += (
-            f"Holdings have had {difference_string} or {abs(pct_difference):.2f}% "
-            f"from the previous period.\n\n"
-            f"![{alt_text}](cid:portfolio-summary)\n"
-            "## Changes in shares held ##\n"
-        )
-        share_changes = (
-            self.holdings[days[0] : days[-1]].drop_duplicates().diff().dropna()
-        )
-        if share_changes.any().any():
-            changes = []
-            for symbol, change in share_changes.items():
-                changes += [
-                    (
-                        f"*   Holdings of {symbol} changed by {shares:,.3f} shares "
-                        f"valued at ${self.data.Close.loc[date, symbol] * shares:,.2f} "
-                        f"on {date.strftime('%m/%d')}.\n"
-                    )
-                    for date, shares in change.items()
-                    if shares > 0
-                ]
-            report += "".join(changes)
-        return report
-
-    def plot(self, period: str = "w") -> str:
-        """Plot the portfolio total and save to an image file."""
-        import matplotlib.pyplot as plt
-        from pandas.plotting import register_matplotlib_converters
-
-        register_matplotlib_converters()
-        fig, ax = plt.subplots(figsize=(8, 6))
-        self.value.Total.resample(period).plot.line(
-            ax=ax,
-            color="blue",
-            title="Portfolio Summary",
-            ylabel="Value",
-            ylim=(self.value.Total.min(), self.value.Total.max()),
-        )
-        plt.grid(True)
-        with tempfile.NamedTemporaryFile(
-            dir=".", prefix="portfolio_", suffix=".png", delete=False
-        ) as file:
-            plt.savefig(file.name, bbox_inches="tight")
-            return file.name
+    @staticmethod
+    def get_market_data(symbols: List[str], start=None, end=None) -> pd.DataFrame:
+        """"""
+        logger.info("Retrieving market data from Yahoo Finance.")
+        data = DataReader(symbols, "yahoo", start, end)
+        return data.Close

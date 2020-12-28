@@ -1,3 +1,4 @@
+import configparser
 from datetime import datetime
 from email import encoders
 from email.mime.multipart import MIMEMultipart
@@ -5,9 +6,12 @@ from email.mime.image import MIMEImage
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
 import smtplib
+import tempfile
+from typing import Dict
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 import pandas as pd
+from .log import logger
 from .portfolio import Portfolio
 
 
@@ -25,10 +29,16 @@ def superscript(ord: str) -> str:
 
 
 class Report(object):
+    """ A report for a portfolio of financial instruments."""
 
     title = "Portfolio Report"
 
-    def __init__(self, pf: Portfolio, config, date: datetime = datetime.today()):
+    def __init__(
+        self,
+        pf: Portfolio,
+        config: "configparser.ConfigParser",
+        date: datetime = datetime.today(),
+    ):
         """Constructs a report for the given Portfolio object."""
         if type(pf) != Portfolio:
             raise (ValueError("First argument must be of type portfolio.Portfolio"))
@@ -37,6 +47,8 @@ class Report(object):
             self.date = pf.data.index[
                 pf.data.index.get_loc(pd.Timestamp(date), method="nearest")
             ]
+        else:
+            self.date = pd.Timestamp(date)
         self.data = {
             "date": self.date.strftime("%B %d"),
             "title": self.title,
@@ -57,15 +69,17 @@ class Report(object):
             self.data["symbols"][symbol].update(self.get_individual_report(symbol))
         self.data.update(self.get_report_table())
         if self.date.dayofweek == 4:
-            self.data["chart_file"] = self.pf.plot()
+            self.data["periodic"].update(self.get_periodic_report("7d"))
+            logger.info(self.data["periodic"])
+            self.data["chart_file"] = self.plot()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.text
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.__class__.__name__}(portfolio={self.pf!r}, date={self.date!r})"
 
-    def get_overall_report(self) -> dict:
+    def get_overall_report(self) -> Dict[str, str]:
         """Creates a report including data about the portfolio as a whole."""
         date = self.date
         pf = self.pf
@@ -82,7 +96,7 @@ class Report(object):
         data["rank_value_html"] = superscript(data["rank_value"])
         return data
 
-    def get_individual_report(self, symbol: str) -> dict:
+    def get_individual_report(self, symbol: str) -> Dict[str, str]:
         """Generates a dictionary containing data about a single symbol."""
         date = self.date
         pf = self.pf
@@ -102,7 +116,7 @@ class Report(object):
         data["rank_value_html"] = superscript(data["rank_value"])
         return data
 
-    def get_report_table(self) -> dict:
+    def get_report_table(self) -> Dict[str, str]:
         """Makes a table of the values of symbols and their total for a range of dates."""
         data = {}
         date = self.date
@@ -124,18 +138,59 @@ class Report(object):
         data["table_text"] = table_data.to_string(float_format="${:,.2f}".format)
         return data
 
+    def get_periodic_report(
+        self, period: pd.offsets.DateOffset = "7d"
+    ) -> Dict[str, str]:
+        """Produce a text string for a given period to be included in the larger portfolio report.
+
+        Args:
+            period: The period of time which should be included in the report.
+
+        Returns:
+            Data to be used by the report template.
+        """
+        days = pd.date_range(self.date - pd.Timedelta(period), self.date)
+        pf = self.pf
+        value = pf.value
+        data = {
+            "period": ("Weekly" if period == "7d" else "Monthly"),
+            "start": days[0].strftime("%m/%d"),
+            "end": days[-1].strftime("%m/%d"),
+            "value": value.loc[days[0] : days[-1]]["Total"],
+            "difference": value.loc[days[0] : days[-1]]["Total"].diff().sum(),
+            "pct_difference": value.loc[days[0] : days[-1]]["Total"].pct_change(1).sum()
+            * 100,
+        }
+        range = pf.holdings.loc[days[0] : days[-1]].drop_duplicates().diff().dropna()
+        if range.any().any():
+            data["changes"] = {}
+            for row in range.iterrows():
+                data["changes"][row[0]] = {}
+                for col in range.columns:
+                    if range.loc[row[0], col] != 0:
+                        data["changes"][row[0]][col] = range.loc[row[0], col]
+        return data
+
     def email(self, test: bool = False) -> bool:
-        """Send the portfolio report by email."""
+        """Send the portfolio report by email.
+
+        Args:
+            test: True if the email should only be prepared and printed but not sent.
+
+        Returns:
+            True if an email was actually sent, False otherwise.
+        """
         date = self.date
+        config = self.config
         try:
-            server = self.config["email"]["smtp_server"]
-            port = self.config["email"]["smtp_port"]
-            user = self.config["email"]["smtp_user"]
-            password = self.config["email"]["smtp_password"]
-            sender = self.config["email"]["sender"]
-            recipients = self.config["email"]["recipients"].splitlines()[1:]
+            server = config["email"]["smtp_server"]
+            port = config["email"]["smtp_port"]
+            user = config["email"]["smtp_user"]
+            password = config["email"]["smtp_password"]
+            sender = config["email"]["sender"]
+            recipients = config["email"]["recipients"].splitlines()[1:]
         except KeyError:
-            print("Email configuration incomplete.")
+            logger.exception("Email configuration incomplete.")
             return False
         message = MIMEMultipart()
         message["From"] = sender
@@ -144,8 +199,6 @@ class Report(object):
         message["Message-ID"] = make_msgid(domain="gmail.com")
         message["Date"] = formatdate(localtime=True)
         message["Subject"] = "Portfolio Report"
-        with open("message.html", "w", encoding="utf-8") as file:
-            file.write(self.html)
         content = MIMEMultipart("alternative")
         part1 = MIMEText(self.text, "plain", "us-ascii")
         content.attach(part1)
@@ -161,6 +214,7 @@ class Report(object):
             chart1.add_header("Content-Id", "portfolio-summary")
             message.attach(chart1)
         if test:
+            logger.debug("Testing only; email not sent.")
             print(message.as_string())
             return False
         with smtplib.SMTP(server, int(port)) as smtp:
@@ -169,6 +223,36 @@ class Report(object):
             smtp.login(user, password)
             smtp.send_message(message)
             return True
+
+    def plot(self, period: str = "w") -> str:
+        """Plot the portfolio total and save to an image file.
+
+        Args:
+            period: The period of time to plot, defaults to weeks.
+
+        Returns:
+            Name of the file containing the plotted data.
+        """
+        import matplotlib.pyplot as plt
+        from pandas.plotting import register_matplotlib_converters
+
+        register_matplotlib_converters()
+        pf = self.pf
+        fig, ax = plt.subplots(figsize=(8, 6))
+        pf.value.Total.resample(period).plot.line(
+            ax=ax,
+            color="blue",
+            title="Portfolio Summary",
+            ylabel="Value",
+            ylim=(pf.value.Total.min(), pf.value.Total.max()),
+        )
+        plt.grid(True)
+        with tempfile.NamedTemporaryFile(
+            dir=pf.path, prefix="portfolio_", suffix=".png", delete=False
+        ) as file:
+            logger.debug("Saving portfolio chart to %s...", file.name)
+            plt.savefig(file.name, bbox_inches="tight")
+            return file.name
 
     @property
     def html(self):

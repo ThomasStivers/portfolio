@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "portfolio"
-version = "1.3"
+version = "v1.3.0"
 description = "Package for tracking and reporting on a stock portfolio."
 authors = ["ThomasStivers <thomas.stivers@gmail.com>"]
 license = "GPL"
@@ -15,6 +15,7 @@ tables = "^3.6.1"
 matplotlib = "^3.3.3"
 openpyxl = "^3.0.5"
 setuptools = "^51.0.0"
+pyarrow = "^2.0.0"
 
 [tool.poetry.dev-dependencies]
 black = "^20.8b1"
@@ -25,6 +26,9 @@ sphinx-rtd-theme = "^0.5.0"
 sphinx-argparse = "^0.2.5"
 pytest = "^6.1.2"
 twine = "^3.2.0"
+
+[tool.poetry.scripts]
+portfolio = "portfolio.app:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

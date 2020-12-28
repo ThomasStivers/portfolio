@@ -11,6 +11,6 @@ formatter = logging.Formatter(
 stream = logging.StreamHandler()
 stream.setLevel(logging.INFO)
 logger.addHandler(stream)
-file = logging.FileHandler("portfolio.log")
+file = logging.FileHandler("portfolio.log", mode="w")
 file.setFormatter(formatter)
 logger.addHandler(file)

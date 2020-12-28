@@ -3,7 +3,7 @@ from os.path import splitext
 
 import pandas as pd
 from .interactive import _Interactive
-from .logging import logger
+from .log import logger
 from .report import Report
 
 
@@ -14,10 +14,18 @@ def make_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(title="Actions")
+    # parser.add_argument(
+    # "-q",
+    # "--quiet",
+    # action="count",
+    # dest="verbosity",
+    # help="Produce less output.",
+    # )
     parser.add_argument(
         "-v",
         "--verbose",
-        action="store_true",
+        action="count",
+        dest="verbosity",
         help="Provide more detailed information.",
     )
     parser.add_argument(
@@ -27,18 +35,19 @@ def make_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "-F",
-        "--file",
-        default="holdings.h5",
+        "--folder",
+        default="data",
         help=(
-            "Name of the file where holdings and market data are stored. "
+            "Name of the folder where holdings and market data are stored. "
             "The default is %(default)s."
         ),
     )
-    parser.add_argument(
-        "--sample",
-        action="store_true",
-        help="Only use sample data in the portfolio.",
-    )
+    # parser.add_argument(
+    # "--sample",
+    # action="store_true",
+    # help="Only use sample data in the portfolio.",
+    # )
+    parser.set_defaults(func=report)
     interactive_parser = subparsers.add_parser(
         "interactive", help="Interactively make changes to the portfolio."
     )
@@ -60,11 +69,16 @@ def make_parser() -> argparse.ArgumentParser:
         "-d", "--date", default=pd.Timestamp.now(), help="The date to look up."
     )
     report_parser.add_argument(
-        "-e", "--email", action="store_true", help="Email the portfolio report."
+        "-e",
+        "--email",
+        action="store_true",
+        default=False,
+        help="Email the portfolio report.",
     )
     report_parser.add_argument(
         "-o",
         "--output",
+        default=None,
         dest="output_file",
         type=argparse.FileType("w"),
         help="Write the report to a .html or .txt file. The format written depends on the file extension given.",
@@ -76,15 +90,17 @@ def make_parser() -> argparse.ArgumentParser:
         "-t",
         "--test",
         action="store_true",
+        default=False,
         help="Used to test emails without sending.",
     )
     report_parser.add_argument(
         "-x",
         "--export",
         dest="export_file",
+        type=argparse.FileType("w"),
         help="Export holdings to a csv or xlsx file. The format of the output depends on the file extension",
     )
-    report_parser.set_defaults(func=report)
+    report_parser.set_defaults(func=report, verbosity=1, email=False)
     update_parser = subparsers.add_parser(
         "update", help="Update accounts or portfolios."
     )
@@ -125,27 +141,44 @@ def interactive(args, portfolio, config):
     return args
 
 
-def list(args, portfolio, config):
+def list(args, portfolio, config=None):
     logger.debug("Listing holdings...")
-    print("\t".join(portfolio.holdings.columns))
-    return args
+    if args.verbosity < 1:
+        listing = "\t".join(portfolio.holdings.columns)
+    elif args.verbosity == 1:
+        listing = portfolio.holdings.iloc[-1]
+    else:
+        listing = pd.DataFrame(
+            index=portfolio.holdings.columns,
+            columns=["Holdings", "Price", "Value"],
+            data={
+                "Holdings": portfolio.holdings.iloc[-1],
+                "Price": portfolio.data.iloc[-1],
+                "Value": portfolio.value.drop(columns="Total").iloc[-1],
+            },
+        )
+    print(listing)
+    return listing
 
 
 def report(args, portfolio, config):
     logger.debug("Running report...")
-    report = Report(portfolio, config=config)
-    if args.email:
+    report = Report(portfolio, config=config, date=args.date)
+    if hasattr(args, "email") and args.email:
+        logger.debug("Emailing report...")
         report.email(args.test)
-    elif args.verbose:
+    if args.verbosity > 0:
         print(report.text)
-    elif args.output_file:
+    if args.output_file:
+        logger.debug("Writing report to %s...", args.output_file.name)
         if splitext(args.output_file.name)[1] == ".txt":
             args.output_file.write(report.text)
         if splitext(args.output_file.name)[1] == ".html":
             args.output_file.write(report.html)
         args.output_file.close()
-
-    return args
+    if args.export_file:
+        portfolio.export(args.export_file.name)
+    # return report
 
 
 def update(args, portfolio, config):

@@ -1,29 +1,31 @@
 from configparser import ConfigParser
-from pathlib import Path
 from os.path import join, splitext
+from pathlib import Path
+import sys
 
-import pandas as pd
-
-from portfolio import _Interactive, Account, logger, make_parser, Portfolio, Report
+from portfolio import logger, make_parser, Portfolio
 
 
 def main() -> None:
-    """Use parsed command line and config file options to produce a formatted report."""
+    """Entry point for the portfolio app."""
+    logger.debug('Running "%s" in "%s"', " ".join(sys.argv), Path(".").resolve())
     config = ConfigParser()
     portfolio_configs = ["portfolio.ini", join(str(Path.home()), "portfolio.ini")]
     logger.debug("Reading configuration from %s...", portfolio_configs)
     config.read(portfolio_configs)
     with Portfolio() as portfolio:
         args = make_parser().parse_args()
+        logger.debug("Arguments parsed as %s", args)
         if hasattr(args, "func"):
-            args = args.func(args, portfolio, config)
-        # report = Report(portfolio, config=config)
-        # if args.email:
-        # report.email(args.test)
+            args.func(args, portfolio, config)
 
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        logger.debug("Exiting...")
+        logger.debug("Exiting by keyboard interrupt...")
+    except Exception:
+        logger.exception("Fatal error in main.")
+        raise
+    logger.debug("%s exited.", __name__)
