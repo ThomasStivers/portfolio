@@ -1,10 +1,11 @@
 import argparse
 from os.path import splitext
 
-import pandas as pd
-from .interactive import _Interactive
-from .log import logger
-from .report import Report
+import pandas as pd  # type: ignore
+
+from portfolio.interactive import _Interactive
+from portfolio.log import logger
+from portfolio.report import Report
 
 
 def make_parser() -> argparse.ArgumentParser:
@@ -26,6 +27,7 @@ def make_parser() -> argparse.ArgumentParser:
         "--verbose",
         action="count",
         dest="verbosity",
+        default=0,
         help="Provide more detailed information.",
     )
     parser.add_argument(
@@ -94,13 +96,21 @@ def make_parser() -> argparse.ArgumentParser:
         help="Used to test emails without sending.",
     )
     report_parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        dest="verbosity",
+        default=1,
+        help="Provide more detailed information.",
+    )
+    report_parser.add_argument(
         "-x",
         "--export",
         dest="export_file",
         type=argparse.FileType("w"),
         help="Export holdings to a csv or xlsx file. The format of the output depends on the file extension",
     )
-    report_parser.set_defaults(func=report, verbosity=1, email=False)
+    report_parser.set_defaults(func=report, email=False)
     update_parser = subparsers.add_parser(
         "update", help="Update accounts or portfolios."
     )

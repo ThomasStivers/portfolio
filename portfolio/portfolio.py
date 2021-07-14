@@ -1,18 +1,21 @@
-#!/usr/bin/python3
 """A tool for managing a stock portfolio."""
 import argparse
+from configparser import ConfigParser
 from functools import cached_property
 import os
+from os.path import join
 from pathlib import Path
 import sys
 from typing import List, Optional, Union
 
 # Imports for pandas and related modules
-import pandas as pd
-import numpy as np
-from pandas_datareader import DataReader
+import pandas as pd  # type: ignore
+from pandas.tseries.holiday import USFederalHolidayCalendar  # type: ignore
+from pandas.tseries.offsets import BDay  # type: ignore
+import numpy as np  # type: ignore
+from pandas_datareader import DataReader  # type: ignore
 
-from .log import logger
+from portfolio.log import logger
 
 
 # Pandas options
@@ -25,9 +28,9 @@ class Portfolio:
 
     def __init__(
         self,
-        path: str = "data",
-        data: pd.DataFrame = None,
-        holdings: pd.DataFrame = None,
+        path: str = None,
+        data: pd.DataFrame = pd.DataFrame(),
+        holdings: pd.DataFrame = pd.DataFrame(),
     ):
         """Initialize the portfolio with holdings and market data.
 
@@ -39,52 +42,52 @@ class Portfolio:
             holdings:   A DataFrame containing the number of shares held of the set of
                 symbols in data over a time period corresponding to that of data.
         """
-        today = pd.Timestamp.floor(pd.Timestamp.today(), "D")
-        yesterday = today - pd.Timedelta("1D")
-        if type(data) == pd.DataFrame and type(holdings) == pd.DataFrame:
+        if len(data) > 0 and len(holdings) > 0:
             logger.debug("Data and holdings arguments are set.")
             self.data = data
             self.holdings = holdings
         else:
             logger.debug("Data and holdings are not set.")
-        if "path" in locals() and Path(path).is_dir():
-            logger.debug("Path %s is a directory.", path)
-            self.path = Path(path)
-            if not self.path.is_dir():
-                logger.info("%s is not a directory, creating it...", self.path)
-                self.path.mkdir()
-        if hasattr(self, "path") and self.path.is_dir():
-            try:
-                # The feather format does not support date indices,
-                # so set the Date colemn to be the index.
-                self.holdings = pd.read_feather(
-                    self.path / "holdings.feather"
-                ).set_index("Date")
-            except FileNotFoundError:
-                logger.info("No stored holdings found.")
-                self.holdings = holdings
-            symbols = self.holdings.columns
-            try:
-                # The feather format does not support date indices,
-                # so set the Date colemn to be the index.
-                self.data = pd.read_feather("data/prices.feather").set_index("Date")
-            except FileNotFoundError:
-                logger.info("Market data is not stored or is out of date.")
-                self.data = Portfolio.get_market_data(symbols)
-        else:
-            raise (RuntimeError("A path for data storage must be defined."))
-        # if we don't have given data, and it is a day we don't have data for, and it is
-        # after market close.
+        if path is None:
+            path = Path().home() / ".portfolio" / "data"
+        self.path = Path(path)
+        if not self.path.is_dir():
+            logger.info("%s is not a directory, creating it...", self.path)
+            self.path.mkdir()
+        self.data_file = self.path / "prices.feather"
+        self.holdings_file = self.path / "holdings.feather"
+        try:
+            # The feather format does not support date indices,
+            # so set the Date colemn to be the index.
+            self.holdings = pd.read_feather(self.holdings_file).set_index("date")
+        except FileNotFoundError:
+            logger.info("No stored holdings found.")
+            self.holdings = holdings
+        symbols = self.holdings.columns
+        try:
+            # The feather format does not support date indices,
+            # so set the Date colemn to be the index.
+            self.data = pd.read_feather(self.data_file).set_index("date")
+        except FileNotFoundError:
+            logger.info("Market data is not stored .")
+        calendar = USFederalHolidayCalendar()
+        today = pd.Timestamp.today().normalize()
+        last_business_day = min(today - BDay(1), self.data.index.max() + BDay(1))
+        holidays = calendar.holidays(last_business_day, today)
+        # print(f"{today=}, {last_business_day=}, {self.data.index.max()=}")
         if (
-            type(data) != pd.DataFrame
-            and self.data.index.max() < yesterday
-            and yesterday.dayofweek in range(0, 5)
-            or pd.Timestamp.now() > pd.Timestamp("16:00")
+            today not in self.data.index
+            and last_business_day not in self.data.index
+            and holidays.empty
         ):
-            self.data = Portfolio.get_market_data(
+            self.data = self.get_market_data(
                 symbols,
+                start=last_business_day,
+                end=today,
             )
-        self.holdings = self.holdings.reindex(self.data.index, method="ffill").dropna()
+            self.holdings = self.holdings.reindex(
+                self.data.index, method="ffill"
+            ).dropna()
 
     @cached_property
     def value(self) -> pd.DataFrame:
@@ -103,12 +106,14 @@ class Portfolio:
 
     def __exit__(self, type, value, traceback):
         """Stores market and holdings data to an feather file."""
-        data_filename = str(self.path / "prices.feather")
-        holdings_filename = str(self.path / "holdings.feather")
-        logger.debug("Writing market data to %s...", data_filename)
-        self.data.reset_index().to_feather(data_filename)
-        logger.debug("Writing holdings to %s...", holdings_filename)
-        self.holdings.reset_index().to_feather(str(self.path / "holdings.feather"))
+        saved_data = pd.read_feather(self.data_file)
+        saved_holdings = pd.read_feather(self.holdings_file)
+        if not saved_data.equals(self.data.reset_index()):
+            logger.debug("Writing market data to %s...", self.data_file)
+            self.data.reset_index().to_feather(self.data_file)
+        if not saved_holdings.equals(self.holdings.reset_index()):
+            logger.debug("Writing holdings to %s...", self.holdings_file)
+            self.holdings.reset_index().to_feather(self.holdings_file)
 
     def __repr__(self) -> str:
         return (
@@ -166,9 +171,9 @@ class Portfolio:
             )
         self.holdings.loc[date:, symbol] = quantity
         try:
-            self.data[symbol] = Portfolio.get_market_data(symbol)
+            self.data[symbol] = self.get_market_data(list(symbol))
         except KeyError:
-            pass
+            logger.debug("Unable to retrieve market data for %s.", symbol)
 
     def remove_shares(
         self, symbol: str, quantity: float, date: pd.Timestamp
@@ -278,10 +283,11 @@ class Portfolio:
         shares = cash / last_close
         return shares
 
-    def export(self, filename: Union[os.PathLike, str] = "holdings.csv") -> bool:
+    def export(self, filename: str = "holdings.csv") -> bool:
         """Export the holdings in the portfolio to a file.
 
-        :param filename: A CSV or XLSX file where holdings data should be exported.
+        Args:
+            filename: A CSV or XLSX file where holdings data should be exported.
         """
         logger.debug("Exporting data to %s...", filename)
         if filename.endswith(".csv"):
@@ -293,11 +299,60 @@ class Portfolio:
                 self.holdings.drop_duplicates().to_excel(writer, sheet_name="Holdings")
                 self.value.to_excel(writer, sheet_name="Value")
                 return True
-            return False
+        return False
 
-    @staticmethod
-    def get_market_data(symbols: List[str], start=None, end=None) -> pd.DataFrame:
-        """"""
-        logger.info("Retrieving market data from Yahoo Finance.")
-        data = DataReader(symbols, "yahoo", start, end)
-        return data.Close
+    def get_market_data(
+        self,
+        symbols: List[str],
+        start: Union[str, pd.Timestamp] = None,
+        end: Union[str, pd.Timestamp] = None,
+    ) -> pd.DataFrame:
+        """Retrieve stock market information from IEX Cloud.
+
+        Args:
+            symbols: Stock ticker symbols to look up.
+            start: The first date that will be included in the results.
+            end: The last date that will be included in results
+
+        Returns:
+            The closing prices for the provided symbols over the date range.
+        """
+        config = ConfigParser()
+        private_config = join(str(Path.home()), "portfolio.ini")
+        config.read([private_config])
+        try:
+            last_retrieval = pd.to_datetime(config["iex"]["last_retrieval"])
+        except KeyError:
+            last_retrieval = pd.Timestamp(0)
+        api_key = config["iex"]["api_key"]
+        today = pd.Timestamp.today().normalize()
+        latest_data = self.data.index.max()
+        if len(symbols) == 0:
+            logger.info("Nothing to retrieve.")
+            return pd.DataFrame()
+        else:
+            symbols = list(symbols)
+        if latest_data < today - BDay(1) and last_retrieval < today:
+            logger.info(
+                "Retrieving market data for %s through %s from IEX Cloud...", start, end
+            )
+            data = DataReader(list(symbols), "iex", start, end, api_key=api_key)
+            if data.empty:
+                logger.warn("No data retrieved.")
+                return self.data
+            logger.debug(data)
+            config["iex"]["last_retrieval"] = str(today)
+            data.index = pd.to_datetime(data.index)
+            with open(private_config, "w") as conf:
+                config.write(conf)
+            try:
+                self.data = self.data.append(data.close, verify_integrity=True)
+            except ValueError:
+                logger.warn(
+                    "The portfolio already contains data for the period %s through %s.",
+                    start,
+                    end,
+                )
+            return self.data
+        else:
+            return self.data

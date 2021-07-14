@@ -41,7 +41,8 @@ def test_holdings(symbols=["GOOG", "MSFT"]) -> pd.DataFrame:
 def sample_portfolio():
     data = test_data()
     holdings = test_holdings()
-    return portfolio.Portfolio("tests/data", data, holdings)
+    with portfolio.Portfolio("tests/data", data, holdings) as pf:
+        return pf
 
 
 @pytest.fixture(scope="module")

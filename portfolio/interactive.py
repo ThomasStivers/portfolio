@@ -1,18 +1,20 @@
-import argparse
+import configparser
 from getpass import getpass
-import os
 from pathlib import Path
+from typing import Callable, Dict
 
-import pandas as pd
-from .portfolio import Portfolio
+import pandas as pd  # type: ignore
+
+from portfolio.portfolio import Portfolio
+from portfolio.report import Report
 
 
 class _Interactive(object):
     """Make changes to the portfolio interactively."""
 
-    def __init__(self, portfolio: Portfolio, args: argparse.Namespace):
+    def __init__(self, portfolio: Portfolio):
         self.portfolio = portfolio
-        self.menu_actions = dict()
+        self.menu_actions: Dict[int, Callable] = dict()
         self.menu = dict(
             enumerate(
                 [
@@ -38,7 +40,7 @@ class _Interactive(object):
         menu_string = "\n".join(
             [".\t".join([str(choice), item]) for choice, item in self.menu.items()]
         )
-        choice = int(input(menu_string + "\n Choice or q to quit> "))
+        choice = int(input(menu_string + "\n Choice: > "))
         self.menu_actions[choice]()
 
     def assign_actions(self) -> dict:
@@ -54,7 +56,7 @@ class _Interactive(object):
         """Add a new symbol to the portfolio."""
         symbol = input("Symbol to add: ")
         date = pd.Timestamp(input(f"Date on which to add {symbol}: "))
-        quantity = float(input("Shares to add (preceed with $ for cash value): "))
+        quantity = input("Shares to add (preceed with $ for cash value): ")
         if quantity.startswith("$"):
             cash = float(quantity[1:])
             self.portfolio.add_symbol(
@@ -67,7 +69,9 @@ class _Interactive(object):
 
     def configure(self) -> None:
         """Configure email settings."""
-        config = self.portfolio.config
+        config = configparser.ConfigParser()
+        with open(str(Path.home() / "portfolio.ini")) as config_file:
+            config.read(config_file)
         email = config["email"]
         email["smtp_server"] = input(f"SMTP Server ({email['smtp_server']}): ")
         email["smtp_port"] = input(f"SMTP port ({email['smtp_port']}): ")
@@ -89,7 +93,7 @@ class _Interactive(object):
         else:
             email["recipients"] = recipients[1]
         config["email"] = email
-        with open(os.path.join(str(Path.home()), self.config_name)) as config_file:
+        with open(str(Path.home() / "portfolio.ini")) as config_file:
             config.write(config_file)
         self.show_menu()
 
@@ -117,12 +121,10 @@ class _Interactive(object):
     def email(self) -> None:
         """Email the html formatted portfolio report to designated recipients."""
         date = pd.Timestamp(input("Date of report: "))
-        args = argparse.Namespace(
-            date=date,
-            symbol=list(self.portfolio.holdings.columns),
-            email=True,
-        )
-        self.portfolio.email(args)
+        config = configparser.ConfigParser()
+        with open(str(Path.home() / "portfolio.ini")) as config_file:
+            config.read(config_file)
+        Report(self.portfolio, config=config, date=date).email()
         print("Portfolio emailed.")
         self.show_menu()
 
@@ -153,10 +155,7 @@ class _Interactive(object):
     def report(self) -> None:
         """Generate portfolio report interactively."""
         date = pd.Timestamp(input("Date of report: "))
-        args = argparse.Namespace(
-            date=date, symbol=list(self.portfolio.holdings.columns), verbose=True
-        )
-        print(self.portfolio.report(args)["text"])
+        print(Report(self.portfolio, config=None, date=date).text)
         self.show_menu()
 
     def set(self) -> None:

@@ -43,7 +43,7 @@ def test_cli_list(parser, sample_portfolio):
 
 
 def test_cli_report(parser, sample_portfolio):
-    argv = [""]
+    argv = ["report"]
     args = parser.parse_args(argv)
     assert args.verbosity == 1
     assert not args.email

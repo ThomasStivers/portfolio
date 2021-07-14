@@ -1,0 +1,42 @@
+{{ title }} for {{ date }}
+Total holdings were {{ "${:,.2f}".format(total) }}.
+{% if difference > 0: %}
+This is an increase of {{ "${:,.2f}".format(difference) }} or {{ "{:0.2f}".format(pct_difference) }}% since the previous day.
+{% elif difference < 0: %}
+This is a decrease of {{ "${:,.2f}".format(difference * -1) }} or {{ "{:0.2f}".format(pct_difference * -1) }}% since the previous day.
+{% else: %}
+There is no change on this day.
+{% endif %}
+Of the {{ days }} days so far, this is the {{ rank_change }} best day this year, and the {{ rank_value }} best investment balance.
+
+{% if periodic: %}
+{{ periodic.period }} report from {{ periodic.start }} through {{ periodic.end }}
+{% if periodic.difference < 0: %}
+Holdings have had a decrease of {{ "${:,.2f}".format(periodic.difference * -1) }} or {{ "{:,.2f}".format(periodic.pct_difference * -1) }}%.
+{% elif periodic.difference >= 0: %}
+Holdings have had an increase of {{ "${:,.2f}".format(periodic.difference) }} or {{ "{:,.2f}".format(periodic.pct_difference) }}%.
+{% endif %}
+{% if periodic.changes: %}
+Changes in shares held during the period
+{% for day in periodic.changes: %}
+{% for symbol in periodic["changes"][day]: %}
+* On {{ day.strftime("%m/%d") }} {{ "{:,.3f}".format(periodic["changes"][day][symbol]) }} shares of {{ symbol }} wer purchased.
+{% endfor %}
+{% endfor %}
+{% endif %}
+{% endif %}
+
+Individual holdings Reports for {{ symbols.__len__() }} funds
+{%for symbol, data in symbols.items(): %}
+* Total holdings of {{ symbol }} were {{ "${:,.2f}".format(data.total) }}.
+{% if data.difference > 0: %}
+This is an increase of {{ "${:,.2f}".format(data.difference) }} or {{ "{:0.2f}".format(data.pct_difference) }}% since the previous day.
+{% elif data.difference < 0: %}
+This is a decrease of {{ "${:,.2f}".format(data.difference * -1) }} or {{ "{:0.2f}".format(data.pct_difference * -1) }}% since the previous day.
+{% else: %}
+There is no change on this day.
+{%endif %}
+Of the {{ days }} days so far, this is the {{ data.rank_change }} best day this year, and the {{ data.rank_value }} best investment balance.
+{% endfor %}
+
+{{ table_text }}

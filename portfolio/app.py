@@ -3,7 +3,9 @@ from os.path import join, splitext
 from pathlib import Path
 import sys
 
-from portfolio import logger, make_parser, Portfolio
+from portfolio.log import logger
+from portfolio.portfolio import Portfolio
+from portfolio.cli import make_parser
 
 
 def main() -> None:

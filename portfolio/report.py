@@ -5,14 +5,18 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
+from functools import cached_property
 import smtplib
 import tempfile
-from typing import Dict
+from typing import Dict, Optional
 
 from jinja2 import Environment, PackageLoader, select_autoescape
-import pandas as pd
-from .log import logger
-from .portfolio import Portfolio
+import matplotlib.pyplot as plt  # type: ignore
+import pandas as pd  # type: ignore
+from pandas.plotting import register_matplotlib_converters  # type: ignore
+
+from portfolio.log import logger
+from portfolio.portfolio import Portfolio
 
 
 def ordinal(n: int) -> str:
@@ -25,10 +29,12 @@ def ordinal(n: int) -> str:
 
 def superscript(ord: str) -> str:
     """Converts the suffix of ordinal numbers to superscript in html."""
+    if ord == "":
+        return ""
     return ord.replace(ord[-2:], f"<sup>{ord[-2:]}</sup>")
 
 
-class Report(object):
+class Report:
     """ A report for a portfolio of financial instruments."""
 
     title = "Portfolio Report"
@@ -36,7 +42,7 @@ class Report(object):
     def __init__(
         self,
         pf: Portfolio,
-        config: "configparser.ConfigParser",
+        config: Optional[configparser.ConfigParser] = None,
         date: datetime = datetime.today(),
     ):
         """Constructs a report for the given Portfolio object."""
@@ -60,8 +66,8 @@ class Report(object):
             lstrip_blocks=True,
             trim_blocks=True,
         )
-        self.html_template = self.env.get_template("email/html.html")
-        self.text_template = self.env.get_template("email/plain.txt")
+        self.html_template = self.env.get_template("email/portfolio.html")
+        self.text_template = self.env.get_template("email/portfolio.txt")
         self.data.update(self.get_overall_report())
         self.data["symbols"] = {}
         for symbol in pf.holdings.columns:
@@ -69,8 +75,7 @@ class Report(object):
             self.data["symbols"][symbol].update(self.get_individual_report(symbol))
         self.data.update(self.get_report_table())
         if self.date.dayofweek == 4:
-            self.data["periodic"].update(self.get_periodic_report("7d"))
-            logger.info(self.data["periodic"])
+            self.data["periodic"] = self.get_periodic_report("7d")
             self.data["chart_file"] = self.plot()
 
     def __str__(self) -> str:
@@ -80,38 +85,79 @@ class Report(object):
         return f"{self.__class__.__name__}(portfolio={self.pf!r}, date={self.date!r})"
 
     def get_overall_report(self) -> Dict[str, str]:
-        """Creates a report including data about the portfolio as a whole."""
+        """Creates a report including data about the portfolio as a whole.
+
+        Returns:
+            A dictionary suitable for passing into a jinja2 template to generate a text or html report.
+        """
         date = self.date
         pf = self.pf
+        start = year_start = pd.Timestamp(date.year, 1, 1)
+        if pf.value.index.min() > year_start:
+            start = pf.value.index.min()
+        end = year_end = pd.Timestamp(date.year, 12, 31)
+        if pf.value.index.max() < year_end:
+            end = pf.value.index.max()
         data = {
             "total": pf.value["Total"].loc[date],
             "difference": pf.value["Total"].diff()[date],
             "pct_difference": pf.value["Total"].pct_change(1)[date] * 100,
             "rank_change": ordinal(
-                int(pf.value["Total"].diff().rank(ascending=False)[date])
+                int(pf.value.loc[start:end, "Total"].diff().rank(ascending=False)[date])
             ),
-            "rank_value": ordinal(int(pf.value["Total"].rank(ascending=False)[date])),
+            "rank_value": ordinal(
+                int(pf.value.loc[start:end, "Total"].rank(ascending=False)[date])
+            ),
+            "start": start,
+            "end": end,
+            "days": len(pf.value.loc[start:end]),
         }
+        data["rank_change"] = (
+            "" if data["rank_change"] == "1st" else data["rank_change"]
+        )
+        data["rank_value"] = "" if data["rank_value"] == "1st" else data["rank_value"]
         data["rank_change_html"] = superscript(data["rank_change"])
         data["rank_value_html"] = superscript(data["rank_value"])
         return data
 
     def get_individual_report(self, symbol: str) -> Dict[str, str]:
-        """Generates a dictionary containing data about a single symbol."""
+        """Generates a dictionary containing data about a single symbol.
+
+        Args:
+            symbol: A single stock symbol for which to generate a report.
+
+        Returns:
+            A dictionary suitable for passing into a jinja2 template to generate a text or html report.
+        """
         date = self.date
         pf = self.pf
         if pf.value.loc[date, symbol] == 0:
             del self.data["symbols"][symbol]
             return {}
+        start = year_start = pd.Timestamp(date.year, 1, 1)
+        if pf.value.index.min() > year_start:
+            start = pf.value.index.min()
+        end = year_end = pd.Timestamp(date.year, 12, 31)
+        if pf.value.index.max() < year_end:
+            end = pf.value.index.max()
         data = {
             "total": pf.value.loc[date, symbol],
             "difference": pf.value[symbol].diff()[date],
             "pct_difference": pf.value[symbol].pct_change(1)[date] * 100,
             "rank_change": ordinal(
-                int(pf.value[symbol].diff().rank(ascending=False)[date])
+                int(pf.value.loc[start:end, symbol].diff().rank(ascending=False)[date])
             ),
-            "rank_value": ordinal(int(pf.value[symbol].rank(ascending=False)[date])),
+            "rank_value": ordinal(
+                int(pf.value.loc[start:end, symbol].rank(ascending=False)[date])
+            ),
+            "start": start,
+            "end": end,
+            "days": len(pf.value.loc[start:end]),
         }
+        data["rank_change"] = (
+            "" if data["rank_change"] == "1st" else data["rank_change"]
+        )
+        data["rank_value"] = "" if data["rank_value"] == "1st" else data["rank_value"]
         data["rank_change_html"] = superscript(data["rank_change"])
         data["rank_value_html"] = superscript(data["rank_value"])
         return data
@@ -123,7 +169,9 @@ class Report(object):
         symbols = self.data["symbols"].keys()
         value = self.pf.value
         table_range = value.index[
-            value.index.get_loc(date) - 4 : value.index.get_loc(date) + 6
+            value.index.get_loc(date) - 4
+            if value.index.get_loc(date) - 4 >= 0
+            else 0 : value.index.get_loc(date) + 6
         ]
         table_data = value.loc[table_range, symbols]
         # If we only have 0 values don't show the symbol.
@@ -182,6 +230,9 @@ class Report(object):
         """
         date = self.date
         config = self.config
+        if not config:
+            logger.error("Configuration required to send email.")
+            return False
         try:
             server = config["email"]["smtp_server"]
             port = config["email"]["smtp_port"]
@@ -233,9 +284,6 @@ class Report(object):
         Returns:
             Name of the file containing the plotted data.
         """
-        import matplotlib.pyplot as plt
-        from pandas.plotting import register_matplotlib_converters
-
         register_matplotlib_converters()
         pf = self.pf
         fig, ax = plt.subplots(figsize=(8, 6))
@@ -254,10 +302,10 @@ class Report(object):
             plt.savefig(file.name, bbox_inches="tight")
             return file.name
 
-    @property
+    @cached_property
     def html(self):
         return self.html_template.render(**self.data)
 
-    @property
+    @cached_property
     def text(self):
         return self.text_template.render(**self.data)
