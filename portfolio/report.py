@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt  # type: ignore
 import pandas as pd  # type: ignore
 from pandas.plotting import register_matplotlib_converters  # type: ignore
 
+from portfolio.config import PortfolioConfig
 from portfolio.log import logger
 from portfolio.portfolio import Portfolio
 
@@ -35,14 +36,14 @@ def superscript(ord: str) -> str:
 
 
 class Report:
-    """ A report for a portfolio of financial instruments."""
+    """A report for a portfolio of financial instruments."""
 
     title = "Portfolio Report"
 
     def __init__(
         self,
         pf: Portfolio,
-        config: Optional[configparser.ConfigParser] = None,
+        config: Optional[PortfolioConfig] = None,
         date: datetime = datetime.today(),
     ):
         """Constructs a report for the given Portfolio object."""
@@ -239,7 +240,7 @@ class Report:
             user = config["email"]["smtp_user"]
             password = config["email"]["smtp_password"]
             sender = config["email"]["sender"]
-            recipients = config["email"]["recipients"].splitlines()[1:]
+            recipients = config["email"]["recipients"]
         except KeyError:
             logger.exception("Email configuration incomplete.")
             return False

@@ -2,6 +2,6 @@ Command Line Options
 ====================
 
 .. argparse::
-   :module: cli
+   :module: portfolio.cli
    :func: make_parser
    :prog: app.py

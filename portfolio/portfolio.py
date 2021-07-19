@@ -1,9 +1,8 @@
 """A tool for managing a stock portfolio."""
 import argparse
-from configparser import ConfigParser
+
+# from configparser import ConfigParser
 from functools import cached_property
-import os
-from os.path import join
 from pathlib import Path
 import sys
 from typing import List, Optional, Union
@@ -15,6 +14,7 @@ from pandas.tseries.offsets import BDay  # type: ignore
 import numpy as np  # type: ignore
 from pandas_datareader import DataReader  # type: ignore
 
+from portfolio.config import PortfolioConfig
 from portfolio.log import logger
 
 
@@ -74,7 +74,6 @@ class Portfolio:
         today = pd.Timestamp.today().normalize()
         last_business_day = min(today - BDay(1), self.data.index.max() + BDay(1))
         holidays = calendar.holidays(last_business_day, today)
-        # print(f"{today=}, {last_business_day=}, {self.data.index.max()=}")
         if (
             today not in self.data.index
             and last_business_day not in self.data.index
@@ -317,14 +316,12 @@ class Portfolio:
         Returns:
             The closing prices for the provided symbols over the date range.
         """
-        config = ConfigParser()
-        private_config = join(str(Path.home()), "portfolio.ini")
-        config.read([private_config])
-        try:
-            last_retrieval = pd.to_datetime(config["iex"]["last_retrieval"])
-        except KeyError:
-            last_retrieval = pd.Timestamp(0)
-        api_key = config["iex"]["api_key"]
+        with PortfolioConfig() as config:
+            try:
+                last_retrieval = pd.to_datetime(config["iex"]["last_retrieval"])
+            except KeyError:
+                last_retrieval = pd.Timestamp(0)
+            api_key = config["iex"]["api_key"]
         today = pd.Timestamp.today().normalize()
         latest_data = self.data.index.max()
         if len(symbols) == 0:
@@ -334,24 +331,24 @@ class Portfolio:
             symbols = list(symbols)
         if latest_data < today - BDay(1) and last_retrieval < today:
             logger.info(
-                "Retrieving market data for %s through %s from IEX Cloud...", start, end
+                "Retrieving market data for %s through %s from IEX Cloud...",
+                start.strftime("%x"),
+                end.strftime("%x"),
             )
             data = DataReader(list(symbols), "iex", start, end, api_key=api_key)
             if data.empty:
                 logger.warn("No data retrieved.")
                 return self.data
-            logger.debug(data)
-            config["iex"]["last_retrieval"] = str(today)
+            with PortfolioConfig() as config:
+                config["iex"]["last_retrieval"] = str(today)
             data.index = pd.to_datetime(data.index)
-            with open(private_config, "w") as conf:
-                config.write(conf)
             try:
                 self.data = self.data.append(data.close, verify_integrity=True)
             except ValueError:
                 logger.warn(
                     "The portfolio already contains data for the period %s through %s.",
-                    start,
-                    end,
+                    start.strftime("%x"),
+                    end.strftime("%x"),
                 )
             return self.data
         else:

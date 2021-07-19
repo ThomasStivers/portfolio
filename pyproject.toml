@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "portfolio"
-version = "v1.3.1"
+version = "v1.4.0"
 description = "Package for tracking and reporting on a stock portfolio."
 authors = ["ThomasStivers <thomas.stivers@gmail.com>"]
 license = "GPL"

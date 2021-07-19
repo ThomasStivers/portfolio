@@ -3,7 +3,7 @@
 import re
 from typing import Union
 
-from .portfolio import Portfolio
+from portfolio.portfolio import Portfolio
 
 
 class Account:

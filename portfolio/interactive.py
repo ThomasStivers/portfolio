@@ -1,10 +1,10 @@
-import configparser
 from getpass import getpass
 from pathlib import Path
 from typing import Callable, Dict
 
 import pandas as pd  # type: ignore
 
+from portfolio.config import PortfolioConfig
 from portfolio.portfolio import Portfolio
 from portfolio.report import Report
 
@@ -69,10 +69,8 @@ class _Interactive(object):
 
     def configure(self) -> None:
         """Configure email settings."""
-        config = configparser.ConfigParser()
-        with open(str(Path.home() / "portfolio.ini")) as config_file:
-            config.read(config_file)
-        email = config["email"]
+        with PortfolioConfig() as config:
+            email = config["email"]
         email["smtp_server"] = input(f"SMTP Server ({email['smtp_server']}): ")
         email["smtp_port"] = input(f"SMTP port ({email['smtp_port']}): ")
         email["smtp_user"] = input(f"SMTP User Name ({email['smtp_user']}): ")
@@ -80,21 +78,18 @@ class _Interactive(object):
             prompt=f"SMTP Password ({len(email['smtp_password'])* '*'}): "
         )
         email["sender"] = input("From: ")
-        recipients = [""]
+        recipients = []
         while True:
             recipient = input("To: ")
             if recipient == "":
                 break
             recipients.append(recipient)
-        if len(recipients) > 2:
-            email["recipients"] = "\n".join(recipients)
-        elif len(recipients) == 1:
+        if len(recipients) == 1:
             raise ValueError("At least one recipient is required.")
         else:
             email["recipients"] = recipients[1]
-        config["email"] = email
-        with open(str(Path.home() / "portfolio.ini")) as config_file:
-            config.write(config_file)
+        with PortfolioConfig() as config:
+            config["email"] = email
         self.show_menu()
 
     def create(self):
@@ -121,10 +116,8 @@ class _Interactive(object):
     def email(self) -> None:
         """Email the html formatted portfolio report to designated recipients."""
         date = pd.Timestamp(input("Date of report: "))
-        config = configparser.ConfigParser()
-        with open(str(Path.home() / "portfolio.ini")) as config_file:
-            config.read(config_file)
-        Report(self.portfolio, config=config, date=date).email()
+        with PortfolioConfig() as config:
+            Report(self.portfolio, config=config, date=date).email()
         print("Portfolio emailed.")
         self.show_menu()
 

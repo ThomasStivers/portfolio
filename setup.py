@@ -2,10 +2,14 @@ import setuptools
 
 with open("README.rst", "r", encoding="utf-8") as readme:
     long_description = readme.read()
+version = {}
+with open("portfolio/version.py", "r") as ver:
+    exec(ver.read(), version)
+
 
 setuptools.setup(
     name="portfolio-thomas.stivers",
-    version="1.3",
+    version=version["__version__"],
     author="Thomas Stivers",
     author_email="thomas.stivers@gmail.com",
     description="A package for managing financial portfolios.",
