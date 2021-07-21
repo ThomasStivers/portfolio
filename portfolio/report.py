@@ -1,4 +1,3 @@
-import configparser
 from datetime import datetime
 from email import encoders
 from email.mime.multipart import MIMEMultipart
@@ -230,20 +229,17 @@ class Report:
             True if an email was actually sent, False otherwise.
         """
         date = self.date
-        config = self.config
-        if not config:
-            logger.error("Configuration required to send email.")
-            return False
-        try:
-            server = config["email"]["smtp_server"]
-            port = config["email"]["smtp_port"]
-            user = config["email"]["smtp_user"]
-            password = config["email"]["smtp_password"]
-            sender = config["email"]["sender"]
-            recipients = config["email"]["recipients"]
-        except KeyError:
-            logger.exception("Email configuration incomplete.")
-            return False
+        with PortfolioConfig() as config:
+            try:
+                server = config["email"]["smtp_server"]
+                port = config["email"]["smtp_port"]
+                user = config["email"]["smtp_user"]
+                password = config["email"]["smtp_password"]
+                sender = config["email"]["sender"]
+                recipients = config["email"]["recipients"]
+            except KeyError:
+                logger.exception("Email configuration incomplete.")
+                return False
         message = MIMEMultipart()
         message["From"] = sender
         message["Reply-To"] = sender

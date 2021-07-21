@@ -1,7 +1,5 @@
 """A tool for managing a stock portfolio."""
 import argparse
-
-# from configparser import ConfigParser
 from functools import cached_property
 from pathlib import Path
 import sys

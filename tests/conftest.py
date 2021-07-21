@@ -1,10 +1,9 @@
-from configparser import ConfigParser
 import random
 
 import numpy as np
 import pandas as pd
 import pytest
-from tests.context import account, portfolio, report
+from tests.context import account, config, portfolio, report
 
 
 def test_data(symbols=["GOOG", "MSFT"]) -> pd.DataFrame:
@@ -47,9 +46,8 @@ def sample_portfolio():
 
 @pytest.fixture(scope="module")
 def sample_report(sample_portfolio):
-    config = ConfigParser()
-    config.read("tests/test_config.ini")
-    return report.Report(sample_portfolio, config=config)
+    with config.PortfolioConfig() as conf:
+        return report.Report(sample_portfolio, config=conf)
 
 
 @pytest.fixture(scope="module")
