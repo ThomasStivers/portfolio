@@ -22,7 +22,7 @@ identify==1.4.14
 idna==2.9
 imagesize==1.2.0
 Jinja2==3.0.0a1
-lxml==4.5.0
+lxml==4.9.1
 Markdown==3.2.1
 MarkupSafe==2.0.0a1
 mccabe==0.6.1
